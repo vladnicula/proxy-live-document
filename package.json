@@ -1,0 +1,17 @@
+{
+  "name": "live-document-edits-via-proxy",
+  "version": "1.0.0",
+  "description": "An exploration of mutating a document object (or state) in a similar way to AutoMerge library, with the goal of both Real Time collaboration as well as observable changes for UIs.",
+  "main": "index.html",
+  "scripts": {
+    "start": "parcel index.html --open",
+    "build": "parcel build index.html"
+  },
+  "dependencies": {
+    "lodash.isequal": "4.5.0"
+  },
+  "devDependencies": {
+    "parcel-bundler": "^1.6.1"
+  },
+  "keywords": []
+}
