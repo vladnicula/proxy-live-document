@@ -1,9 +1,10 @@
-import { isObject, deepDiff } from "./utils";
+import { isObject, deepDiff, proxyWrite, recursiveDiff } from "./utils";
+import { executeAndLog } from './perf'
 
 type RecuRecord<T> = Record<string, T> | T;
 
 const addMockNodes = (doc: { nodes: Record<string, unknown> }) => {
-  for (let i = 0; i < 10; i += 1) {
+  for (let i = 0; i < 10000; i += 1) {
     const id = `id-mock-${i}`;
     doc.nodes[id] = {
       id,
@@ -46,7 +47,7 @@ export const myDocument: RecuRecord<
     id1: {
       hierarchy: {
         compId: "string",
-        parentId: "string",
+        parentId: "666",
         position: "string",
         children: { id2: "true" }
       },
@@ -77,127 +78,6 @@ export const myDocument: RecuRecord<
 
 addMockNodes(myDocument as any);
 
-type DirtyPathMap = Record<string, unknown>;
-
-const proxyWrite = <T extends Record<string, unknown>>(
-  document: T,
-  dirty: DirtyPathMap = {},
-  path: Array<string> = []
-) => {
-  const cache: Record<
-    string,
-    {
-      proxy: unknown;
-      overwrite: unknown;
-    }
-  > = {};
-
-  const result = new Proxy(document, {
-    get: (entity, prop) => {
-      if (typeof prop === "symbol") {
-        return Reflect.get(entity, prop);
-      }
-      const entityValue = entity[prop];
-      const propAsString = prop.toString();
-
-      if (typeof entityValue !== "object" || entityValue === null) {
-        return Reflect.get(entity, prop);
-      }
-
-      let childProxy = cache[propAsString];
-
-      if (!childProxy) {
-        const proxyToWrite = isObject(entityValue)
-          ? proxyWrite(entityValue as Record<string, unknown>, dirty, [
-              ...path,
-              propAsString
-            ])
-          : entityValue;
-
-        cache[propAsString] = {
-          proxy: proxyToWrite,
-          overwrite: null
-        };
-
-        childProxy = cache[propAsString];
-      }
-
-      if (childProxy.overwrite) {
-        return childProxy.overwrite;
-      }
-
-      return childProxy.proxy;
-    },
-
-    set: (entity, prop, value) => {
-      if (typeof prop === "symbol") {
-        return Reflect.set(entity, prop, value);
-      }
-      const entityValue = entity[prop];
-      const propAsString = prop.toString();
-
-      console.log(`set`, prop, value);
-      let childProxy = cache[propAsString];
-      if (!childProxy) {
-        cache[propAsString] = {
-          proxy: isObject(entityValue)
-            ? proxyWrite(entityValue as Record<string, unknown>, dirty, [
-                ...path,
-                propAsString
-              ])
-            : entityValue,
-          overwrite: null
-        };
-
-        childProxy = cache[propAsString];
-      }
-      childProxy.overwrite = value;
-
-      let subObject = dirty;
-      for (let i = 0; i < path.length; i++) {
-        const keyName = path[i];
-        subObject[keyName] = subObject[keyName] || {};
-        subObject = subObject[keyName] as DirtyPathMap;
-      }
-
-      subObject[propAsString] = true;
-
-      return true;
-    }
-  });
-
-  return result;
-};
-
-const recursiveDiff = <T extends Record<string, unknown>>(
-  diffPaths: DirtyPathMap,
-  document: T,
-  changable: T,
-  applyChanges: boolean = true
-) => {
-  return Object.keys(diffPaths).reduce((acc: Record<string, unknown>, key) => {
-    if (diffPaths[key] === true) {
-      acc[key] = {
-        old: document[key],
-        new: deepDiff(document[key], changable[key])
-      };
-      if (applyChanges) {
-        document[key] = changable[key];
-      }
-    } else {
-      const subObject = document[key];
-      if (typeof subObject === "object" && subObject !== null)
-        acc[key] = recursiveDiff(
-          diffPaths[key] as Record<string, unknown>,
-          subObject as Record<string, unknown>,
-          changable[key] as Record<string, unknown>,
-          applyChanges
-        );
-    }
-
-    return acc;
-  }, {});
-};
 
 const mutate = <T extends Record<string, unknown>>(
   document: T,
@@ -210,43 +90,106 @@ const mutate = <T extends Record<string, unknown>>(
   return diff;
 };
 
-const t0 = performance.now();
+const resultAvg = executeAndLog(() => {
+  mutate(myDocument, initialState => {
+    initialState.nodes.id1.style = {
+      ...initialState.nodes.id1.style,
+      ceva: {
+        content: '656',
+        type: 'static'
+      },
+      padding: {
+        content: '32px',
+        type: 'static'
+      }
+    };
+  
+    Object.assign(initialState.nodes.id1.style, {
+      ...initialState.nodes.id1.style,
+      ceva: {
+        content: '-42',
+        type: 'static'
+      }
+    })
+    
+    initialState.nodes.id1.style.borderRadius = {
+      content: '20',
+      type: 'static'
+    }
+    initialState.nodes.id1.style.width = {
+      content: '100%',
+      type: 'static'
+    };
+  
+    initialState.nodes.id1.hierarchy = {
+      ...initialState.nodes.id1.hierarchy,
+      parentId: "newParentId32"
+    };
+  
+    initialState.nodes.id2 = {
+      ceva: 22
+    };
+  
+    initialState.nodes.id3 = {
+      ceva: 451
+    };
+  
+    initialState.nodes["id-mock-321"].style.padding.content = "32px";
+  })
+})
 
-const changes = mutate(myDocument, initialState => {
-  // initialState.nodes.id1.style = {
-  //   ...initialState.nodes.id1.style,
-  //   ceva: 22
-  // };
-  console.log(`proxy spread`, initialState.nodes.id1.style);
-  // initialState.nodes.id1.style.borderRadius = 20;
-  // initialState.nodes.id1.style.width = 20;
 
-  // initialState.nodes.id1.hierarchy = {
-  //   ...initialState.nodes.id1.hierarchy,
-  //   parentId: "newParentId32"
-  // };
-
-  // initialState.nodes.id2 = {
-  //   ceva: 22
-  // };
-
-  // initialState.nodes.id3 = {
-  //   ceva: 451
-  // };
-
-  // initialState.nodes["id-mock-321"].style.padding.content = "32px";
-});
-
-const t1 = performance.now();
-console.log(`Call to doSomething took ${t1 - t0} milliseconds.`);
+console.log(`Call to mutation changes took an average of ${resultAvg} milliseconds. On a document with ${
+  Object.keys(myDocument.nodes).length
+} nodes`);
 
 // BUG. Changes are not applied in the end on the document DONE
 
 // BUG. Object spread in node hierarchy does not work
 // might provide solution: https://stackoverflow.com/questions/43185453/object-assign-and-proxies
-console.log(
-  changes,
-  `by 'deep diff' in document with ${
-    Object.keys(myDocument.nodes).length
-  } nodes`
-);
+// seems to work in browser, not so much in codesandbox. DONE. It was not needed in the end
+
+// BUG. Speading objects does not set all spread keys. They end up missing in the 
+// diff implementations. DONE. Was a poor implementation of the object deep diff
+
+// BUG. Object assign of inner objects does not set all spread keys. They end up missing in the 
+// dif implementations. Bug was in the recursiveDiff. I was getting a {} empty obj
+// from the diff algorithm, and was setting it as the new value. I am now look to see
+// if the changes are a empty {} and not registering at chage in the mutations list if
+// that is the case.
+// Suggestions. Improve this by adding a check in the proxy as well? Can't because
+// that requires deep diffing during the execution not at the end.
+// DONE. Same bug with diffing algorithm
+
+
+// const deepDiffResult1 = deepDiff(
+//   {
+//     style: {
+//       border: '1px solid red',
+//     }
+//   },
+//   {
+//     style: {
+//       border: '1px solid red',
+//     }
+//   }
+// )
+
+// console.log(deepDiffResult1)
+
+// const deepDiffResult2 = deepDiff(
+//   {
+//     style: {
+//       border: '1px solid red',
+//       ceva: 22
+//     }
+//   },
+//   {
+//     style: {
+//       border: '1px solid red',
+//       ceva: 33
+//     }
+//   }
+// )
+
+// console.log(deepDiffResult2)
