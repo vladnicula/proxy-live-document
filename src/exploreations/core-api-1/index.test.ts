@@ -9,6 +9,7 @@ class ElementNode {
   styles: Record<string, unknown> = {}
 
   setStyleByKey (key: string, value: unknown) {
+    debugger
     this.styles[key] = value
   }
 }
@@ -21,23 +22,22 @@ newBElement.setStyleByKey('background', 'blue')
 document.nodes['a'] = newAElement
 document.nodes['b'] = newBElement
 
-test("Typescript works", () => {
-  const patch = mutate(document, (modifiable) => {
-    modifiable.nodes.b.setStyleByKey('border-radius', '3px')
-  
-    // set same thing twice
-    modifiable.nodes.a.setStyleByKey('border-radius', '3px')
-    modifiable.nodes.a.setStyleByKey('border-radius', '4px')
-  
-    // overwride think
-    modifiable.nodes.a.setStyleByKey('background', 'purple')
-  
-    // override with same value
-    modifiable.nodes.b.setStyleByKey('background', 'blue')
+test("when setting a key on an object, the path includes the key that was set", () => {
+  const patch1 = mutate(document, (modifiable) => {
+    modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
   })
-  
-  // patch.forEach(patch => console.log(patch)) 
 
-  expect(patch).not.toBe(null)
+  const expectedPath = 'nodes/b/styles/borderRadius'
+  
+  expect(patch1[0].path).not.toBeFalsy()
+  expect(patch1[0].path).toEqual(expectedPath)
 })
 
+test("changes are readable inside mutation function immediatly after setting them", () => {
+  mutate(document, (modifiable) => {
+    modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
+    const thisValue = modifiable.nodes.b.styles['borderRadius']
+    expect(thisValue).toEqual('3px')
+    expect(modifiable.nodes.b.styles).toHaveProperty('borderRadius', '3px')
+  })
+})
