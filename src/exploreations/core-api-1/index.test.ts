@@ -41,3 +41,85 @@ test("changes are readable inside mutation function immediatly after setting the
     expect(modifiable.nodes.b.styles).toHaveProperty('borderRadius', '3px')
   })
 })
+
+test("changes from mutation get applied to docunmet after mutation", () => {
+  mutate(document, (modifiable) => {
+    modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
+  })
+
+  const thisValue = document.nodes.b.styles['borderRadius']
+  expect(thisValue).toEqual('3px')
+  expect(document.nodes.b.styles).toHaveProperty('borderRadius', '3px')
+})
+
+test("simple operations add", () => {
+  const source: Record<string, string> = {}
+  const changes = mutate(source, (modifiable) => {
+    modifiable.addedKey = 'value'
+    expect(modifiable.addedKey).toEqual('value')
+    expect(modifiable).toHaveProperty('addedKey', 'value')
+  })
+
+  expect(source.addedKey).toEqual('value')
+  expect(source).toHaveProperty('addedKey', 'value')
+
+  expect(changes).toHaveLength(1)
+  expect(changes[0]).toEqual({
+    op: 'add',
+    path: '/addedKey',
+    pathArray: ['addedKey'],
+    value: 'value'
+  })
+})
+
+test("simple operations modify", () => {
+  const INITIAL_VAL = "initialValue"
+  const NEW_VAL = 'newValue'
+  const TARGET_KEY = 'modKey'
+
+  const source: Record<string, string> = {
+    [TARGET_KEY]: INITIAL_VAL
+  }
+  const changes = mutate(source, (modifiable) => {
+    modifiable[TARGET_KEY] = NEW_VAL
+    expect(modifiable[TARGET_KEY]).toEqual(NEW_VAL)
+    expect(modifiable).toHaveProperty(TARGET_KEY, NEW_VAL)
+  })
+
+  expect(source[TARGET_KEY]).toEqual(NEW_VAL)
+  expect(source).toHaveProperty(TARGET_KEY, NEW_VAL)
+
+  expect(changes).toHaveLength(1)
+  expect(changes[0]).toEqual({
+    op: 'replace',
+    path: `/${TARGET_KEY}`,
+    pathArray: [TARGET_KEY],
+    value: NEW_VAL,
+    old: INITIAL_VAL
+  })
+})
+
+test("simple operations delete", () => {
+  const INITIAL_VAL = "initialValue"
+  const TARGET_KEY = 'removeableKey'
+
+  const source: Record<string, string> = {
+    [TARGET_KEY]: INITIAL_VAL
+  }
+  const changes = mutate(source, (modifiable) => {
+    delete modifiable[TARGET_KEY]
+    expect(modifiable[TARGET_KEY]).toEqual(undefined)
+    expect(modifiable).not.toHaveProperty(TARGET_KEY)
+  })
+
+  expect(source[TARGET_KEY]).toEqual(undefined)
+  expect(source).not.toHaveProperty(TARGET_KEY)
+
+  expect(changes).toHaveLength(1)
+  expect(changes[0]).toEqual({
+    op: 'remove',
+    path: `/${TARGET_KEY}`,
+    pathArray: [TARGET_KEY],
+    old: INITIAL_VAL
+  })
+})
