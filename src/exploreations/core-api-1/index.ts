@@ -99,7 +99,7 @@ const combineIntersectedPathOperations = (into: JSONPatchEnhanced, from: JSONPat
     case "add":
       return mergeWithParentAdd(into, from)
     case "replace":
-      return false
+      return true
     default:
       return false
   }
@@ -282,7 +282,7 @@ class ProxyObjectHandler<T extends object> {
     if ( typeof opOriginal === 'object' && opOriginal !== null ) {
       opOriginal = {...opOriginal}
     }
-
+    
     this.ops.push({
       op: opType,
       path: `${prop}`,

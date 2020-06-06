@@ -141,28 +141,41 @@ test('handles remove on deeper key of newly added object', () => {
       }
     }
   }])
+  expect(source).toEqual({
+    key1: {
+      key11: 'value1',
+      key12: 'value2',
+    },
+    key2: {
+      key21: {
+        key211: 'some value',
+      }
+    }
+  })
 })
 
 
-// test('correclty merges adds and replace before remove into just remove', () => {
-//   const source: Record<string, string | Record<string, string>> = {
-//     subObject: {
-//       key1: 'value1',
-//       key2: 'value2',
-//     }
-//   }
+test('replace will merge over adds', () => {
+  const source: Record<string, string | Record<string, string>> = {
+    replaceMe: {
+      key1: 'value1',
+      key2: 'value2',
+    }
+  }
 
-//   const changes = mutate(source, (modifiable) => {
-//     merge(modifiable, {
-//       subObject: {
-//         key2: 'value2',
-//         key3: 'value2',
-//       }
-//     })
+  const changes = mutate(source, (modifiable) => {
+    merge(modifiable, {
+      replaceMe: {
+        key3: 'value3',
+        key4: 'value4',
+      }
+    })
 
-//     delete modifiable.subObject.key1
-//     delete modifiable.subObject
-//   })
+    modifiable.replaceMe = 'I replaced you'
+  })
 
-//   console.log(changes)
-// })
+  expect(changes).toHaveLength(1)
+  expect(source).toEqual({
+    replaceMe: 'I replaced you'
+  })
+})
