@@ -1,3 +1,5 @@
+import merge from 'lodash.merge'
+
 import { mutate } from './'
 
 const document = {
@@ -9,7 +11,6 @@ class ElementNode {
   styles: Record<string, unknown> = {}
 
   setStyleByKey (key: string, value: unknown) {
-    debugger
     this.styles[key] = value
   }
 }
@@ -27,7 +28,7 @@ test("when setting a key on an object, the path includes the key that was set", 
     modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
   })
 
-  const expectedPath = 'nodes/b/styles/borderRadius'
+  const expectedPath = '/nodes/b/styles/borderRadius'
   
   expect(patch1[0].path).not.toBeFalsy()
   expect(patch1[0].path).toEqual(expectedPath)
@@ -122,4 +123,40 @@ test("simple operations delete", () => {
     pathArray: [TARGET_KEY],
     old: INITIAL_VAL
   })
+})
+
+test("object deep merge", () => {
+  const source: Record<string, string | Record<string, string>> = {
+    subObject: {
+      key1: 'value1',
+      key2: 'value2',
+    }
+  }
+
+  const changes = mutate(source, (modifiable) => {
+    merge(modifiable, {
+      subObject: {
+        key2: 'value2 updated',
+        key3: 'value3 new value',
+      }
+    })
+  })
+ 
+  expect(changes).toEqual([
+    {
+      op: 'replace',
+      path: '/subObject/key2',
+      old: 'value2',
+      value: 'value2 updated',
+      pathArray: [ 'subObject', 'key2' ]
+    },
+    {
+      op: 'add',
+      path: '/subObject/key3',
+      old: undefined,
+      value: 'value3 new value',
+      pathArray: [ 'subObject', 'key3' ]
+    }
+  ])
+
 })

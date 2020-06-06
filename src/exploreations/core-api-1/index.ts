@@ -1,9 +1,9 @@
 /**
  * TODO:
- * - the actual proxy
- * - return type for mutate should be json path
- * - json path generation
- * - proxy map cleanup? how do they proxies get garbage collected?
+ * - A class that has a value which is read only from the outside, but that is modified
+ * by the class istance. This is captured in JOSN patches. The apply mutations will
+ * attempt to apply this mutation on the class instace. How will the class instance
+ * react and what will happen?
  */
 
 type ObjectTree = object
@@ -22,13 +22,18 @@ type JSONPatch = {
   old?: unknown
 }
 
-type JSONPatchEnhanced = JSONPatch & {
+export type JSONPatchEnhanced = JSONPatch & {
   pathArray: string[],
 }
 
 /**
- * Used by the mutation to save the changes on the actual target objects. Triggers no updates.
- * This basically does the mutations.
+ * Was used to apply changes in the mutation function after all the operatoins finished.
+ * I changed that to allow writing immediatly in the mutation. Now, when a class instance
+ * makes a change somewhere deep in the tree, the change happens immedtialy. I keep track
+ * of it in the json patch operations and can reason about it later on. 
+ * 
+ * This will come in handy for real time colaboraiton when changes from the server will be
+ * captured and handled by clients. 
  */
 export const applyInternalMutation = <T extends ObjectTree>(mutations: JSONPatchEnhanced[], stateTree: T) => {
   mutations.forEach(mutation => {
@@ -36,8 +41,92 @@ export const applyInternalMutation = <T extends ObjectTree>(mutations: JSONPatch
   })
 }
 
+export const combinedJSONPatches = (operations: JSONPatchEnhanced[]) => {
+  const skipMap = new Map()
+  for ( let i = 0; i < operations.length; i += 1 ) {
+    const compareOp = operations[i]
+    if ( skipMap.has(compareOp) ) {
+      continue;
+    }
+    for ( let j = 0; j < operations.length; j += 1 ) {
+      const compareWithOp = operations[j]
+      if ( compareOp === compareWithOp || skipMap.has(compareWithOp) ) {
+        continue;
+      }
+
+      if ( compareWithOp.path.includes(compareOp.path) 
+        && combineIntersectedPathOperations(compareOp, compareWithOp)
+      ) {
+        skipMap.set(compareWithOp, true)
+      }
+    }
+  }
+
+  return operations.filter((op) => !skipMap.has(op))
+}
+
+/**
+ * Takes a "parent" operation and a "child" operation based on their path
+ * and changes the parent operation to contain the child one if possible.
+ * 
+ * Used to merge togather multiple operations on the same subtree, at different
+ * levels. 
+ * 
+ * This is needed because the mutations could sometimes write or remove the same
+ * key at different points in the execution, and we only care about the final result
+ * at the end of the transactionlike operation.
+ * 
+ * The return statement is a boolean. If merge was possible, the destinatoin of the 
+ * merge, the first param of this function, is already mutated to contain the 
+ * new content.
+ * 
+ * @param into JSON Patch op that is a parent of the from op
+ * @param from JSON Patch op that is a child of the into op
+ * 
+ * @returns true if the merge was possible, and false otherwise
+ */
+const combineIntersectedPathOperations = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) => {
+  const pathTarget = into.path
+  const pathFrom = from.path
+
+  if ( !pathFrom.includes(pathTarget) ) {
+    return false
+  }
+
+  switch ( into.op ) {
+    case "remove":
+      return true
+    case "add":
+      return mergeWithParentAdd(into, from)
+    case "replace":
+      return false
+    default:
+      return false
+  }
+}
+
+const mergeWithParentAdd = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) => {
+  const mergeIntoValue = into.value as Record<string, unknown>
+  const subPath = from.path.replace(into.path, '')
+  const subPathArray = subPath.split('/').filter(part => !!part)
+  applyJSONPatchOperation(
+    {
+      ...from,
+      path: subPath,
+      pathArray: subPathArray
+    },
+    mergeIntoValue
+  )
+  return true
+}
+
+/**
+ * For now this works only for plain objects. It takes the operation and make the change 
+ * required. Supports add, replace and remove. For class instances, we'll have to see what
+ * can be done.
+ */
 const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
-  const { op, path, pathArray, value, old } = operation
+  const { op, pathArray, value } = operation
   if ( !pathArray.length ) {
     return
   }
@@ -45,7 +134,7 @@ const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhan
   const lastVal = pathArrayClone.pop() as string
   const location = pathArrayClone.reduce((reference: Record<string, unknown> | unknown, pathPart) => {
     if ( typeof reference !== 'object' || reference === null ) {
-      throw new Error(`could not walk json path ${path} in target.`)
+      throw new Error(`could not walk json path ${pathArrayClone} in target.`)
     }
     return (reference as Record<string, unknown>)[pathPart]
   }, stateTree) as ObjectTree
@@ -74,7 +163,7 @@ export const mutate = <T extends ObjectTree>(
       value,
     ) => {
       const { path, ops } = value
-      const sourcePath = path.join('/')
+      const sourcePath = path.length ? `/${path.join('/')}` : ''
       for ( let i = 0; i < ops.length; i += 1 ) {
         const op = ops[i] 
         acc.push({
@@ -88,13 +177,11 @@ export const mutate = <T extends ObjectTree>(
     []
   )
 
-  applyInternalMutation(patch, stateTree)
+  const combinedPatches = combinedJSONPatches(patch)
   MutationProxyMap = new WeakMap()
   dirtyPaths = new Set()
-  return patch
+  return combinedPatches
 }
-
-const DELETED = Symbol('DELETED')
 
 const proxyfyAccess = <T extends ObjectTree>(target: T, path = []): T => {
   let proxy = MutationProxyMap.get(target)
@@ -106,10 +193,23 @@ const proxyfyAccess = <T extends ObjectTree>(target: T, path = []): T => {
   return proxy as T
 }
 
+/**
+ * When working with domain objects, it's probably best to have a 
+ * method that serializes them so we can 'snapshot' how they origianlly
+ * looked like before a changed appened. Without this, object spreads 
+ * on those object might not create the best results.
+ * 
+ * For the first phase of this, I'm only looking at plain objects in 
+ * the initial algorithm. In the second phase this might come in handy.
+ */
+export abstract class IObservableDomain {
+  abstract toJSON: () => Record<string, unknown>
+  abstract fromJSON: (input: Record<string, unknown>) => void
+}
+
 
 class ProxyObjectHandler<T extends object> {
   readonly path: string[]
-  readonly cache: Partial<T> = {}
   readonly deleted: Record<string, boolean> = {}
   readonly original: Partial<T> = {}
   readonly ops: JSONPatch[] = []
@@ -119,7 +219,6 @@ class ProxyObjectHandler<T extends object> {
   }
 
   get <K extends keyof T>(target: T, prop: K) {
-    debugger
     if (typeof prop === "symbol") {
       return Reflect.get(target, prop);
     }
@@ -129,7 +228,7 @@ class ProxyObjectHandler<T extends object> {
     }
 
     // TODO why is subEntity not type safe here?
-    const subEntity = this.cache[prop] || target[prop]
+    const subEntity = target[prop]
     if ( typeof subEntity === 'object' && subEntity !== null ) {
       return proxyfyAccess(subEntity, [...this.path, prop])
     }
@@ -137,7 +236,6 @@ class ProxyObjectHandler<T extends object> {
   }
 
   set <K extends keyof T>(target: T, prop: K, value: T[K]) {
-    debugger
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
     dirtyPaths.add(this)
@@ -147,20 +245,52 @@ class ProxyObjectHandler<T extends object> {
       opType = value ? 'replace' : 'remove'
     }
 
-    // console.log('set', this, prop, value)
-    if ( !this.cache[prop] && target[prop] ) {
+    /**
+     * We can check if this is the first time we are setting this prop
+     * in this mutation, by looking to see if we have an original value
+     * already. If we don't, the it's the first time we write.
+     * 
+     * We also only care about value that exist in the target. If we are
+     * setting a new value, we don't have an original, so we don't add
+     * the key at all in the original cache. This way, if target did not
+     * have an original value, we will get hasOwnProperty(prop) === false
+     * with this if, instead of true, but having the value be undefined.
+     * 
+     * It's debatable if having hasOwnProp is better here compared to
+     * the in operator: https://masteringjs.io/tutorials/fundamentals/hasownproperty
+     */
+    if ( !this.original.hasOwnProperty(prop) && target.hasOwnProperty(prop) ) {
       this.original[prop] = target[prop]
     }
-    this.cache[prop] = value
+
+    /**
+     * JSON Patch values should not have reference to mutable
+     * objects that are set. If we set them as references then
+     * later modifications will appear in them. 
+     */
+    let opValue = value
+    if ( typeof value === 'object' && value !== null ) {
+      opValue = {...value}
+    }
+
+    /**
+     * Same thing for the old value. If we reference an object
+     * that object will no longer hold the old values after the
+     * mutation.
+     */
+    let opOriginal = this.original[prop]
+    if ( typeof opOriginal === 'object' && opOriginal !== null ) {
+      opOriginal = {...opOriginal}
+    }
 
     this.ops.push({
       op: opType,
       path: `${prop}`,
-      old: this.original[prop],
-      value,
+      old: opOriginal,
+      value: opValue,
     })
 
-    return true
+    return Reflect.set(target, prop, value)
   }
 
   /**
@@ -171,21 +301,26 @@ class ProxyObjectHandler<T extends object> {
       if ( typeof prop === 'string' ) {
         dirtyPaths.add(this)
         this.deleted[prop] = true
-        if ( target[prop] ) {
-          delete this.cache[prop]
+        
+        if ( !this.original.hasOwnProperty(prop) ) {
           this.original[prop] = target[prop]
         }
+
+        let opOriginal = this.original[prop]
+        if ( typeof opOriginal === 'object' && opOriginal !== null ) {
+          opOriginal = {...opOriginal}
+        }
+
         this.ops.push({
           op: 'remove',
           path: `${prop}`,
-          old: this.original[prop],
+          old: opOriginal,
           value: undefined
         })
       }
-      return true
     }
 
-    return false
+    return Reflect.deleteProperty(target, prop)
   }
 
   /**
@@ -202,7 +337,6 @@ class ProxyObjectHandler<T extends object> {
    * Proxy trap for when looking at what keys we have
    */
   ownKeys (target: T) {
-    console.log('ownKeys', target) 
     return Reflect.ownKeys(target)
   }
 
@@ -210,12 +344,6 @@ class ProxyObjectHandler<T extends object> {
    * Proxy trap for when looking at what keys we have
    */
   has <K extends keyof T>(target: T, key: K) {
-    if ( typeof key === 'string' && this.deleted[key] ) {
-      return false
-    }
-    if ( this.cache[key] ) {
-      return true
-    }
     return Reflect.has(target, key)
   }
 }
