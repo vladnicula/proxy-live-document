@@ -1,38 +1,40 @@
-import { mutate } from './exploreations/core-api-1'
+// import { mutate } from './exploreations/core-api-1'
 
-const document = {
-  nodes: {} as Record<string, ElementNode>
-}
+// const document = {
+//   nodes: {} as Record<string, ElementNode>
+// }
 
-class ElementNode {
+// class ElementNode {
 
-  styles: Record<string, unknown> = {}
+//   styles: Record<string, unknown> = {}
 
-  setStyleByKey (key: string, value: unknown) {
-    this.styles[key] = value
-  }
-}
+//   setStyleByKey (key: string, value: unknown) {
+//     this.styles[key] = value
+//   }
+// }
 
-const newAElement = new ElementNode()
-const newBElement = new ElementNode()
-newAElement.setStyleByKey('background', 'red')
-newBElement.setStyleByKey('background', 'blue')
+// const newAElement = new ElementNode()
+// const newBElement = new ElementNode()
+// newAElement.setStyleByKey('background', 'red')
+// newBElement.setStyleByKey('background', 'blue')
 
-document.nodes['a'] = newAElement
-document.nodes['b'] = newBElement
+// document.nodes['a'] = newAElement
+// document.nodes['b'] = newBElement
 
-const patch = mutate(document, (modifiable) => {
-  modifiable.nodes.b.setStyleByKey('border-radius', '3px')
+// const patch = mutate(document, (modifiable) => {
+//   modifiable.nodes.b.setStyleByKey('border-radius', '3px')
 
-  // set same thing twice
-  modifiable.nodes.a.setStyleByKey('border-radius', '3px')
-  modifiable.nodes.a.setStyleByKey('border-radius', '4px')
+//   // set same thing twice
+//   modifiable.nodes.a.setStyleByKey('border-radius', '3px')
+//   modifiable.nodes.a.setStyleByKey('border-radius', '4px')
 
-  // overwride think
-  modifiable.nodes.a.setStyleByKey('background', 'purple')
+//   // overwride think
+//   modifiable.nodes.a.setStyleByKey('background', 'purple')
 
-  // override with same value
-  modifiable.nodes.b.setStyleByKey('background', 'blue')
-})
+//   // override with same value
+//   modifiable.nodes.b.setStyleByKey('background', 'blue')
+// })
 
-patch.forEach(patch => console.log(patch)) 
+// patch.forEach(patch => console.log(patch)) 
+
+import './exploreations/immer-explore'

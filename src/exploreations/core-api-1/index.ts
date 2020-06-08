@@ -13,7 +13,7 @@ type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 // can we have a better way to define the type of this one?
 let MutationProxyMap: ProxyMapType<ObjectTree> = new WeakMap()
 
-let dirtyPaths = new Set<ProxyObjectHandler<ObjectTree>>()
+let dirtyPaths = new Set<ProxyMutationObjectHandler<ObjectTree>>()
 
 type JSONPatch = {
   op: 'replace' | 'remove' | 'add',
@@ -162,7 +162,7 @@ export const mutate = <T extends ObjectTree>(
       acc: JSONPatchEnhanced[],
       value,
     ) => {
-      const { path, ops } = value
+      const { pathArray: path, ops } = value
       const sourcePath = path.length ? `/${path.join('/')}` : ''
       for ( let i = 0; i < ops.length; i += 1 ) {
         const op = ops[i] 
@@ -186,7 +186,7 @@ export const mutate = <T extends ObjectTree>(
 const proxyfyAccess = <T extends ObjectTree>(target: T, path = []): T => {
   let proxy = MutationProxyMap.get(target)
   if ( !proxy ) {
-    proxy = new Proxy(target, new ProxyObjectHandler(path))
+    proxy = new Proxy(target, new ProxyMutationObjectHandler(path))
     MutationProxyMap.set(target, proxy)
   }
 
@@ -208,14 +208,14 @@ export abstract class IObservableDomain {
 }
 
 
-class ProxyObjectHandler<T extends object> {
-  readonly path: string[]
+class ProxyMutationObjectHandler<T extends object> {
+  readonly pathArray: string[]
   readonly deleted: Record<string, boolean> = {}
   readonly original: Partial<T> = {}
   readonly ops: JSONPatch[] = []
 
-  constructor (path: string []) {
-    this.path = path
+  constructor (pathArray: string []) {
+    this.pathArray = pathArray
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -230,7 +230,7 @@ class ProxyObjectHandler<T extends object> {
     // TODO why is subEntity not type safe here?
     const subEntity = target[prop]
     if ( typeof subEntity === 'object' && subEntity !== null ) {
-      return proxyfyAccess(subEntity, [...this.path, prop])
+      return proxyfyAccess(subEntity, [...this.pathArray, prop])
     }
     return subEntity
   }
@@ -346,4 +346,33 @@ class ProxyObjectHandler<T extends object> {
   has <K extends keyof T>(target: T, key: K) {
     return Reflect.has(target, key)
   }
+}
+
+class ProxySelectorObjectHandler<T extends object> {
+
+  pathArray: string[]
+
+  constructor (pathArray: string []) {
+    this.pathArray = pathArray
+  }
+
+  get <K extends keyof T> (target: T, prop: K, receiver: unknown) {
+    console.log("should make note of dotting into this", target, prop)
+    console.log('who am I', receiver)
+    return Reflect.get(target, prop)
+  }
+}
+
+
+
+const ObservationMap = new WeakMap()
+
+export const observe = <T extends ObjectTree>(
+  stateTree: T, 
+  selector: (selectableState: T) => unknown, 
+  callback: (currentStateTree: T) => unknown
+) => {
+  const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]))
+  selector(selectionProxy)
+  console.log('no idea yet what to do with', callback)
 }
