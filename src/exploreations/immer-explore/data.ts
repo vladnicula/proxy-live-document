@@ -3,7 +3,7 @@ import { immerable } from 'immer';
 export class NodeClassEntity {
   [immerable] = true;
 
-  styles: Record<string, { [key: string]: any }> = {};
+  private styles: Record<string, { [key: string]: any }> = {};
 
   constructor (initialJSON: Record<string, unknown> = {}) {
     const { styles } = initialJSON

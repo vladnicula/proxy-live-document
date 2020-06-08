@@ -4,6 +4,8 @@
     "module": "commonjs",
     "jsx": "preserve",
     "esModuleInterop": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "sourceMap": true,
     "allowJs": true,
     "lib": [
