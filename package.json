@@ -11,13 +11,15 @@
   "dependencies": {
     "immer": "^6.0.9",
     "lodash.isequal": "4.5.0",
-    "lodash.merge": "^4.6.2"
+    "lodash.merge": "^4.6.2",
+    "uuid": "^8.1.0"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.10.2",
     "@babel/preset-typescript": "^7.10.1",
     "@types/jest": "^25.2.3",
     "@types/lodash.merge": "^4.6.6",
+    "@types/uuid": "^8.0.0",
     "jest": "^26.0.1",
     "parcel-bundler": "^1.6.1",
     "typescript": "^3.9.3"

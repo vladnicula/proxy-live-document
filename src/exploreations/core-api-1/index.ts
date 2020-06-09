@@ -383,7 +383,7 @@ const pathMatchesSource = (source: string[], target: string[] ) => {
 
   for ( let i = 0; i < source.length; i += 1 ) {
     for ( let j = 0; j < target.length; j += 1 ) {
-      if ( source[i] !== target[j] ) {
+      if ( source[i] !== '*' && source[i] !== target[j] ) {
         continue
       }
       if ( j + 1 === target.length ) {
@@ -422,8 +422,10 @@ class StateTreeSelector  <T extends ObjectTree, MP extends (s: T) => unknown> {
     this.mappingFn = mappingFn
     this.disposeMethod = disposeMethod
     this.selectorSet = selectorSet.map((stringPath) => {
-      const [, ...rest] = stringPath.split('/')
-      return rest
+      if (stringPath.startsWith('/') ) {
+        stringPath.substr(1).split('/')
+      }
+      return stringPath.split('/')
     })
   }
 
