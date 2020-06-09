@@ -180,6 +180,9 @@ export const mutate = <T extends ObjectTree>(
   const combinedPatches = combinedJSONPatches(patch)
   MutationProxyMap = new WeakMap()
   dirtyPaths = new Set()
+
+  selectorsManager.processPatches(stateTree, combinedPatches)
+
   return combinedPatches
 }
 
@@ -363,10 +366,6 @@ class ProxySelectorObjectHandler<T extends object> {
   }
 }
 
-
-
-const ObservationMap = new WeakMap()
-
 export const observe = <T extends ObjectTree>(
   stateTree: T, 
   selector: (selectableState: T) => unknown, 
@@ -375,4 +374,144 @@ export const observe = <T extends ObjectTree>(
   const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]))
   selector(selectionProxy)
   console.log('no idea yet what to do with', callback)
+}
+
+const pathMatchesSource = (source: string[], target: string[] ) => {
+  if ( source.length !== target.length ) {
+    return false
+  }
+
+  for ( let i = 0; i < source.length; i += 1 ) {
+    for ( let j = 0; j < target.length; j += 1 ) {
+      if ( source[i] !== target[j] ) {
+        continue
+      }
+      if ( j + 1 === target.length ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
+  for ( let i = 0; i < source.length; i += 1 ) {
+    for ( let j = 0; j < target.length; j += 1 ) {
+      if ( pathMatchesSource(source[i], target[j]) ) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+class StateTreeSelector  <T extends ObjectTree, MP extends (s: T) => unknown> {
+  private selectorSet: Array<string[]>
+  private mappingFn: MP
+
+  private callbackSet: Set<(input: ReturnType<MP>) => unknown> = new Set()
+  private disposeMethod: Function
+
+  constructor (
+    selectorSet: string[],
+    mappingFn: MP,
+    disposeMethod: Function
+  ) {
+    this.mappingFn = mappingFn
+    this.disposeMethod = disposeMethod
+    this.selectorSet = selectorSet.map((stringPath) => {
+      const [, ...rest] = stringPath.split('/')
+      return rest
+    })
+  }
+
+  match ( pathArrays:string[][] ) {
+    const selectorSet = this.selectorSet
+    return pathsMatchAnySources(selectorSet, pathArrays)
+  }
+
+  run (stateTree: T) {
+    const mappedValue = this.mappingFn(stateTree) as ReturnType<MP>
+    this.callbackSet.forEach((callback) => {
+      callback(mappedValue)
+    })
+  }
+
+  observe (callback: (input: ReturnType<MP>) => unknown) {
+    if ( this.callbackSet.has(callback) ) {
+      throw new Error(`this callback was already registered. If you run things twice, create two different callbacks`)
+    }
+    this.callbackSet.add(callback)
+  }
+
+  dispose () {
+    this.disposeMethod()
+  }
+}
+
+class StateTreeSelectorsManager<
+  T extends ObjectTree, 
+  K extends StateTreeSelector<T, (s: T) => unknown>
+> {
+  
+  selectorMap = new WeakMap<T, {selectors: K[]}>()
+
+  registerSelector (stateTree: T, selector: K) {
+    let selectorForThisTree = this.selectorMap.get(stateTree)
+    if ( !selectorForThisTree ) {
+      selectorForThisTree = {
+        selectors: [] as K[]
+      }
+      this.selectorMap.set(stateTree, selectorForThisTree)
+    }
+
+    selectorForThisTree.selectors.push(selector)
+  }
+
+  removeSelector (stateTree: T, selector: K ) {
+    const selectorForThisTree = this.selectorMap.get(stateTree)
+    if ( !selectorForThisTree ) {
+      return
+    }
+
+    const pos = selectorForThisTree.selectors.indexOf(selector)
+    if ( pos !== -1 ) {
+      selectorForThisTree.selectors = [
+        ...selectorForThisTree.selectors.slice(0, pos),
+        ...selectorForThisTree.selectors.slice(pos + 1)
+      ]
+    }
+  }
+
+  processPatches(stateTree:T, combinedPatches: JSONPatchEnhanced[]) {
+    const selectors = this.selectorMap.get(stateTree)
+    if ( !selectors || !selectors.selectors || selectors.selectors.length === 0 ) {
+      return
+    }
+
+    const pathArrays = combinedPatches.map((patch) => patch.pathArray)
+    for ( let i = 0; i < selectors.selectors.length; i += 1 ) {
+      const itSelector = selectors.selectors[i]
+      if ( itSelector.match(pathArrays) ) {
+        itSelector.run(stateTree)
+      }
+    }
+  }
+}
+
+const selectorsManager = new StateTreeSelectorsManager()
+
+export const select = <T extends ObjectTree, MP extends (s: T) => unknown>(
+  stateTree: T, 
+  selectors: string[],
+  mappingFn: MP
+) => {
+  const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T, StateTreeSelector<T, MP>>)
+  const selector = new StateTreeSelector<T, MP>(selectors, mappingFn, () => {
+    castSelectorManager.removeSelector(stateTree, selector)
+  });
+  castSelectorManager.registerSelector(stateTree, selector)
+  return selector
 }

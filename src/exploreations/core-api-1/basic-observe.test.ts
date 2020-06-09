@@ -1,6 +1,6 @@
 import { mutate, observe } from "."
 
-describe('basic observe', () => {
+describe.skip('basic observe', () => {
   it('observe exactly the modified value', () => {
 
     const state = {
