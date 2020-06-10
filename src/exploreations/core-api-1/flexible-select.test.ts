@@ -55,7 +55,7 @@ describe('flexible select', () => {
         a: { a1: 'ceva' },
         b: { b1: 'something in b', b2: { b21: 'leaf in b', b22: 'another leaf in b'} },
         c: { c1: 'yet another thing', c2: 'more leafes in c', c3: { c31: { c311: 'very deep leaf '} } }
-      } as Record<string, Object>,
+      } as Record<string, Record<string, string | unknown>>,
       ignoreMe: 23
     }
 
@@ -129,7 +129,7 @@ describe('flexible select', () => {
             }
           }
         }
-      }
+      } as Record<string, {id: number, styles: Record<string, {content: string}>}>
     }
 
     const selector = select(
@@ -155,7 +155,6 @@ describe('flexible select', () => {
 
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid3 = {
-          nodeid3: {
             id: 3,
             styles: {
               paddingTop: {
@@ -169,8 +168,6 @@ describe('flexible select', () => {
               }
             }
           }
-        }
-      
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(2)
@@ -208,8 +205,8 @@ describe('flexible select', () => {
             }
           }
         }
-      }
-    }
+      }  as Record<string, {id: number, styles: Record<string, {content: string}>}>
+    } 
 
     const selector = select(
       stateTree, [
@@ -225,10 +222,9 @@ describe('flexible select', () => {
 
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid4 = {
-          nodeid4: {
-            id: 4,
-          }
-        }
+        id: 4,
+        styles: {}
+      }
       
     })
 
