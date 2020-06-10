@@ -377,11 +377,14 @@ export const observe = <T extends ObjectTree>(
 }
 
 const pathMatchesSource = (source: string[], target: string[] ) => {
-  if ( source.length !== target.length ) {
+  if ( source.indexOf('**') === -1 && source.length !== target.length ) {
     return false
   }
 
   for ( let i = 0; i < source.length; i += 1 ) {
+    if ( source[i] === '**' ) {
+      return true
+    }
     for ( let j = 0; j < target.length; j += 1 ) {
       if ( source[i] !== '*' && source[i] !== target[j] ) {
         continue

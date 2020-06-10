@@ -48,5 +48,52 @@ describe('flexible select', () => {
 
   })
 
- 
+  it('selects any time a subtree changes, regardless of levels', () => {
+
+    const stateTree = {
+      subtree1: {
+        a: { a1: 'ceva' },
+        b: { b1: 'something in b', b2: { b21: 'leaf in b', b22: 'another leaf in b'} },
+        c: { c1: 'yet another thing', c2: 'more leafes in c', c3: { c31: { c311: 'very deep leaf '} } }
+      } as Record<string, Object>,
+      ignoreMe: 23
+    }
+
+    const selector = select(
+      stateTree, [
+        `subtree1/**`
+      ],
+      (mappable) => {
+        return mappable.subtree1
+      })
+
+    const callbackSpy = jest.fn()
+    selector.observe(callbackSpy)
+    
+    mutate(stateTree, (modifiable) => {
+      Object.assign(
+        modifiable.subtree1.a,
+        {key3: 'changed value'}
+      )
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    expect(stateTree.subtree1.a).toHaveProperty('key3', 'changed value')
+    expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
+
+    mutate(stateTree, (modifiable) => {
+      delete modifiable.subtree1.b.b2.b22
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(2)
+    expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
+
+    mutate(stateTree, (modifiable) => {
+      modifiable.subtree1.b.b2.b22 = '321'
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(3)
+    expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
+
+  })
 })
