@@ -11,7 +11,7 @@ describe.skip('basic observe', () => {
       state, 
       (selectable) => selectable.observeMe,
       (currentState) => {
-        console.log("I am modified", currentState)
+        // console.log("I am modified", currentState)
       }
     )
 

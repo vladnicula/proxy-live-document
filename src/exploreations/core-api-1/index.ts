@@ -376,26 +376,48 @@ export const observe = <T extends ObjectTree>(
   console.log('no idea yet what to do with', callback)
 }
 
-const pathMatchesSource = (source: string[], target: string[] ) => {
+export const pathMatchesSource = (source: string[], target: string[] ) => {
   if ( source.indexOf('**') === -1 && source.length !== target.length ) {
     return false
   }
 
   for ( let i = 0; i < source.length; i += 1 ) {
-    if ( source[i] === '**' ) {
+
+    /**
+     * If this level of the path is static and is matched we
+     * continue to the next path
+     */
+    if ( source[i] === target[i] ) {
+      continue
+    }
+
+    /**
+     * if we match anything and still have something to match
+     * we continue to look at the next entities
+     */
+    if ( source[i] === '*' && target[i] ) {
+      continue
+    }
+
+    /**
+     * if the source ends with "**", and target[i] still exists
+     * it means we have a subtree there, we can match it and not
+     * look inside it anymore.
+     */
+    if ( i + 1 === source.length && source[i] === '**' && target[i] ) {
       return true
     }
-    for ( let j = 0; j < target.length; j += 1 ) {
-      if ( source[i] !== '*' && source[i] !== target[j] ) {
-        continue
-      }
-      if ( j + 1 === target.length ) {
-        return true
-      }
+
+    /**
+     * When source and target are not equal, and all special cases of * or **
+     * are treated before this line of code, we basically say it's a do go
+     */
+    if ( target[i] !== source[i] ) {
+      return false
     }
   }
 
-  return false
+  return true
 }
 
 const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
