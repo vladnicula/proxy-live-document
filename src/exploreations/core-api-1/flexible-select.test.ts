@@ -96,4 +96,83 @@ describe('flexible select', () => {
     expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
 
   })
+
+  it('selects /named/*/named2/** path type', () => {
+
+    const stateTree = {
+      nodes: {
+        nodeid1: {
+          styles: {
+            paddingTop: {
+              content: '32px'
+            },
+            marginTop: {
+              content: '32px'
+            },
+            borderTop: {
+              content: '32px'
+            }
+          }
+        },
+        nodeid2: {
+          styles: {
+            paddingTop: {
+              content: '32px'
+            },
+            marginTop: {
+              content: '32px'
+            },
+            borderTop: {
+              content: '32px'
+            }
+          }
+        }
+      }
+    }
+
+    const selector = select(
+      stateTree, [
+        `nodes/*/styles/**`
+      ],
+      (_, matchedPacthes) => {
+        const nodeIdsThatChangedTheirStyles = matchedPacthes.map((jsonPatch) => jsonPatch.pathArray[1])
+        return nodeIdsThatChangedTheirStyles
+      })
+
+    const callbackSpy = jest.fn()
+    selector.observe(callbackSpy)
+    
+    mutate(stateTree, (modifiable) => {
+      modifiable.nodes.nodeid1.styles.marginTop.content = 'auto'
+      modifiable.nodes.nodeid2.styles.marginTop.content = 'auto'
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    expect(callbackSpy).toHaveBeenCalledWith(['nodeid1', 'nodeid2'])
+
+    mutate(stateTree, (modifiable) => {
+      delete modifiable.nodes.nodeid1.styles.marginTop
+      Object.assign(modifiable.nodes, {
+          nodeid3: {
+            styles: {
+              paddingTop: {
+                content: '32px'
+              },
+              marginTop: {
+                content: '32px'
+              },
+              borderTop: {
+                content: '32px'
+              }
+            }
+          }
+        }
+      )
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(2)
+    expect(callbackSpy).toHaveBeenCalledWith(['nodeid1', 'nodeid3'])
+
+  })
+
 })

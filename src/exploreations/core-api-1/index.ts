@@ -402,7 +402,7 @@ const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
   for ( let i = 0; i < source.length; i += 1 ) {
     for ( let j = 0; j < target.length; j += 1 ) {
       if ( pathMatchesSource(source[i], target[j]) ) {
-        return true
+        return target[j]
       }
     }
   }
@@ -410,7 +410,7 @@ const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
   return false
 }
 
-class StateTreeSelector  <T extends ObjectTree, MP extends (s: T) => unknown> {
+class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>> {
   private selectorSet: Array<string[]>
   private mappingFn: MP
 
@@ -437,8 +437,8 @@ class StateTreeSelector  <T extends ObjectTree, MP extends (s: T) => unknown> {
     return pathsMatchAnySources(selectorSet, pathArrays)
   }
 
-  run (stateTree: T) {
-    const mappedValue = this.mappingFn(stateTree) as ReturnType<MP>
+  run (stateTree: T, pathsArray: JSONPatchEnhanced[]) {
+    const mappedValue = this.mappingFn(stateTree, pathsArray) as ReturnType<MP>
     this.callbackSet.forEach((callback) => {
       callback(mappedValue)
     })
@@ -458,7 +458,7 @@ class StateTreeSelector  <T extends ObjectTree, MP extends (s: T) => unknown> {
 
 class StateTreeSelectorsManager<
   T extends ObjectTree, 
-  K extends StateTreeSelector<T, (s: T) => unknown>
+  K extends StateTreeSelector<T, SeletorMappingBase<T>>
 > {
   
   selectorMap = new WeakMap<T, {selectors: K[]}>()
@@ -499,16 +499,18 @@ class StateTreeSelectorsManager<
     const pathArrays = combinedPatches.map((patch) => patch.pathArray)
     for ( let i = 0; i < selectors.selectors.length; i += 1 ) {
       const itSelector = selectors.selectors[i]
-      if ( itSelector.match(pathArrays) ) {
-        itSelector.run(stateTree)
+      const matchedPath = itSelector.match(pathArrays)
+      if ( matchedPath ) {
+        itSelector.run(stateTree, combinedPatches)
       }
     }
   }
 }
 
 const selectorsManager = new StateTreeSelectorsManager()
+type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
-export const select = <T extends ObjectTree, MP extends (s: T) => unknown>(
+export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
   stateTree: T, 
   selectors: string[],
   mappingFn: MP
