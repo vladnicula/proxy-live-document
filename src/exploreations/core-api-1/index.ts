@@ -10,6 +10,8 @@ type ObjectTree = object
 
 type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 
+export const Patcher = Symbol('Patcher')
+
 // can we have a better way to define the type of this one?
 let MutationProxyMap: ProxyMapType<ObjectTree> = new WeakMap()
 
@@ -120,24 +122,89 @@ const mergeWithParentAdd = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) =>
   return true
 }
 
+export const applyJSONPatchOperationV2 = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
+  const { op, pathArray, value } = operation
+  const pathArrayLen = pathArray.length
+  if ( !pathArrayLen ) {
+    return
+  }
+
+  let currentStateTree = stateTree as Record<string, unknown>
+  let itPathPart
+  let lastPatcher
+
+  for ( let i = 0; i < pathArrayLen - 1; i += 1 ) {
+    itPathPart = pathArray[i]
+    if ( !currentStateTree.hasOwnProperty(itPathPart) ) {
+      throw new Error(`applyJSONPatchOperation cannot walk json patch path ${pathArray.join('/')}. Cannot access path ${[...pathArray].slice(0, i).join('/')}.`)
+    }
+    currentStateTree = (currentStateTree as Record<string, unknown>)[itPathPart] as Record<string, unknown>
+
+    if ( currentStateTree.hasOwnProperty(Patcher) ) {
+      lastPatcher = {
+        entity: currentStateTree,
+        pathArray: [...pathArray].slice(i + 1) 
+      }
+    }
+    
+  }
+
+  const lastPathPart = pathArray[pathArrayLen - 1]
+
+  if ( lastPatcher ) {
+    console.log('should do stuff with', lastPatcher)
+    return
+  }
+
+  switch (op) {
+    case 'add':
+    case 'replace':
+      Object.assign(currentStateTree, {[lastPathPart]: value})
+      break
+    case 'remove':
+      // TODO the fuck is worng with this typeshit
+      delete currentStateTree[lastPathPart]
+      break
+  }
+
+}
+
 /**
  * For now this works only for plain objects. It takes the operation and make the change 
  * required. Supports add, replace and remove. For class instances, we'll have to see what
  * can be done.
  */
-const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
+export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
   const { op, pathArray, value } = operation
   if ( !pathArray.length ) {
     return
   }
   const pathArrayClone = [...pathArray]
   const lastVal = pathArrayClone.pop() as string
-  const location = pathArrayClone.reduce((reference: Record<string, unknown> | unknown, pathPart) => {
+  let consumed = false
+  const location = pathArrayClone.reduce((reference: Record<string, unknown> | unknown, pathPart, idx) => {
     if ( typeof reference !== 'object' || reference === null ) {
       throw new Error(`could not walk json path ${pathArrayClone} in target.`)
     }
+    const subPart = (reference as Record<string, unknown>)[pathPart]
+    if ( subPart !== null 
+      && typeof subPart === 'object' 
+      && Patcher in (subPart as object)
+    ) {
+      const pathDownFromHere = [...pathArray].slice(idx - 1)
+      subPart.consumePatch({
+        ...operation,
+        pathArray: pathDownFromHere,
+        path: `/${pathDownFromHere.join('/')}`
+      })
+      consumed = true
+    }
     return (reference as Record<string, unknown>)[pathPart]
   }, stateTree) as ObjectTree
+
+  if ( consumed ) {
+    return
+  }
 
   switch (op) {
     case 'add':
@@ -149,6 +216,17 @@ const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhan
       delete location[lastVal]
       break
   }
+}
+
+export const mutateFromPatches =  <T extends ObjectTree>(
+  stateTree: T, 
+  patches: JSONPatchEnhanced[]
+) => {
+  mutate(stateTree, (mutatable) => {
+    for ( let i = 0; i < patches.length; i += 1 ) {
+      applyJSONPatchOperation(patches[i], mutatable)
+    }
+  })
 }
 
 export const mutate = <T extends ObjectTree>(
@@ -360,8 +438,6 @@ class ProxySelectorObjectHandler<T extends object> {
   }
 
   get <K extends keyof T> (target: T, prop: K, receiver: unknown) {
-    console.log("should make note of dotting into this", target, prop)
-    console.log('who am I', receiver)
     return Reflect.get(target, prop)
   }
 }
@@ -373,7 +449,6 @@ export const observe = <T extends ObjectTree>(
 ) => {
   const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]))
   selector(selectionProxy)
-  console.log('no idea yet what to do with', callback)
 }
 
 export const pathMatchesSource = (source: string[], target: string[] ) => {
@@ -448,7 +523,7 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
     this.disposeMethod = disposeMethod
     this.selectorSet = selectorSet.map((stringPath) => {
       if (stringPath.startsWith('/') ) {
-        stringPath.substr(1).split('/')
+        return stringPath.substr(1).split('/')
       }
       return stringPath.split('/')
     })
