@@ -307,7 +307,7 @@ export class ProxyMutationObjectHandler<T extends object> {
       return Reflect.get(target, prop);
     }
 
-    if ( typeof prop === 'string' && this.deleted[prop] ) {
+    if ( typeof prop === 'string' && this.deleted.hasOwnProperty(prop) ) {
       return undefined
     }
 
