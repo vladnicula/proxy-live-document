@@ -23,7 +23,7 @@ newBElement.setStyleByKey('background', 'blue')
 document.nodes['a'] = newAElement
 document.nodes['b'] = newBElement
 
-describe.skip('main', () => {
+describe('main', () => {
   
   test("when setting a key on an object, the path includes the key that was set", () => {
     const patch1 = mutate(document, (modifiable) => {

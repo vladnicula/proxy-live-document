@@ -8,7 +8,6 @@ describe('proxy mutation handler behaviour', () => {
     }
 
     const proxyedObject = new Proxy(sourceObject, new ProxyMutationObjectHandler([]))
-    debugger
     expect(proxyedObject.hasOwnProperty).toBeTruthy()
   })
 

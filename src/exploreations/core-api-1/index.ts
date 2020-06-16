@@ -172,55 +172,6 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPat
 
 }
 
-/**
- * For now this works only for plain objects. It takes the operation and make the change 
- * required. Supports add, replace and remove. For class instances, we'll have to see what
- * can be done.
- */
-export const applyJSONPatchOperationOld = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
-  const { op, pathArray, value } = operation
-  if ( !pathArray.length ) {
-    return
-  }
-  const pathArrayClone = [...pathArray]
-  const lastVal = pathArrayClone.pop() as string
-  let consumed = false
-  const location = pathArrayClone.reduce((reference: Record<string, unknown> | unknown, pathPart, idx) => {
-    if ( typeof reference !== 'object' || reference === null ) {
-      throw new Error(`could not walk json path ${pathArrayClone} in target.`)
-    }
-    const subPart = (reference as Record<string, unknown>)[pathPart]
-    if ( subPart !== null 
-      && typeof subPart === 'object' 
-      && Patcher in (subPart as object)
-    ) {
-      const pathDownFromHere = [...pathArray].slice(idx - 1)
-      subPart.consumePatch({
-        ...operation,
-        pathArray: pathDownFromHere,
-        path: `/${pathDownFromHere.join('/')}`
-      })
-      consumed = true
-    }
-    return (reference as Record<string, unknown>)[pathPart]
-  }, stateTree) as ObjectTree
-
-  if ( consumed ) {
-    return
-  }
-
-  switch (op) {
-    case 'add':
-    case 'replace':
-      Object.assign(location, {[lastVal]: value})
-      break
-    case 'remove':
-      // TODO the fuck is worng with this typeshit
-      delete location[lastVal]
-      break
-  }
-}
-
 export const mutateFromPatches =  <T extends ObjectTree>(
   stateTree: T, 
   patches: JSONPatchEnhanced[]
@@ -267,7 +218,7 @@ export const mutate = <T extends ObjectTree>(
   return combinedPatches
 }
 
-const proxyfyAccess = <T extends ObjectTree>(target: T, path = []): T => {
+const proxyfyAccess = <T extends ObjectTree>(target: T, path: string[] = []): T => {
   let proxy = MutationProxyMap.get(target)
   if ( !proxy ) {
     proxy = new Proxy(target, new ProxyMutationObjectHandler(path))
@@ -311,10 +262,9 @@ export class ProxyMutationObjectHandler<T extends object> {
       return undefined
     }
 
-    // TODO why is subEntity not type safe here?
     const subEntity = target[prop]
     if ( typeof subEntity === 'object' && subEntity !== null ) {
-      return proxyfyAccess(subEntity, [...this.pathArray, prop])
+      return proxyfyAccess(subEntity as unknown as object, [...this.pathArray, prop] as string[])
     }
     return subEntity
   }
@@ -440,7 +390,7 @@ class ProxySelectorObjectHandler<T extends object> {
     this.pathArray = pathArray
   }
 
-  get <K extends keyof T> (target: T, prop: K, receiver: unknown) {
+  get <K extends keyof T> (target: T, prop: K) {
     return Reflect.get(target, prop)
   }
 }
@@ -448,7 +398,7 @@ class ProxySelectorObjectHandler<T extends object> {
 export const observe = <T extends ObjectTree>(
   stateTree: T, 
   selector: (selectableState: T) => unknown, 
-  callback: (currentStateTree: T) => unknown
+  // callback: (currentStateTree: T) => unknown
 ) => {
   const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]))
   selector(selectionProxy)
