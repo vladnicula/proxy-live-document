@@ -1,11 +1,3 @@
-/**
- * TODO:
- * - A class that has a value which is read only from the outside, but that is modified
- * by the class istance. This is captured in JOSN patches. The apply mutations will
- * attempt to apply this mutation on the class instace. How will the class instance
- * react and what will happen?
- */
-
 type ObjectTree = object
 
 type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
@@ -122,7 +114,7 @@ const mergeWithParentAdd = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) =>
   return true
 }
 
-export const applyJSONPatchOperationV2 = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
+export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
   const { op, pathArray, value } = operation
   const pathArrayLen = pathArray.length
   if ( !pathArrayLen ) {
@@ -131,7 +123,10 @@ export const applyJSONPatchOperationV2 = <T extends ObjectTree>(operation: JSONP
 
   let currentStateTree = stateTree as Record<string, unknown>
   let itPathPart
-  let lastPatcher
+  let lastPatcher: {
+    entity: Record<string, unknown>
+    pathArray: string []
+  } | null = null
 
   for ( let i = 0; i < pathArrayLen - 1; i += 1 ) {
     itPathPart = pathArray[i]
@@ -151,8 +146,17 @@ export const applyJSONPatchOperationV2 = <T extends ObjectTree>(operation: JSONP
 
   const lastPathPart = pathArray[pathArrayLen - 1]
 
-  if ( lastPatcher ) {
-    console.log('should do stuff with', lastPatcher)
+  if ( lastPatcher && `applyPatch` in lastPatcher.entity && typeof  lastPatcher.entity.applyPatch === 'function' ) {
+    const subPathArray = operation.pathArray.filter((pathPart) => lastPatcher?.pathArray.indexOf(pathPart) !== -1)
+    const subPathString = subPathArray.join('/');
+
+    (lastPatcher.entity.applyPatch as (patchOp: JSONPatchEnhanced) => unknown)(
+      {
+        ...operation,
+        path: subPathString,
+        pathArray: subPathArray
+      }
+    )
     return
   }
 
@@ -162,7 +166,6 @@ export const applyJSONPatchOperationV2 = <T extends ObjectTree>(operation: JSONP
       Object.assign(currentStateTree, {[lastPathPart]: value})
       break
     case 'remove':
-      // TODO the fuck is worng with this typeshit
       delete currentStateTree[lastPathPart]
       break
   }
@@ -174,7 +177,7 @@ export const applyJSONPatchOperationV2 = <T extends ObjectTree>(operation: JSONP
  * required. Supports add, replace and remove. For class instances, we'll have to see what
  * can be done.
  */
-export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
+export const applyJSONPatchOperationOld = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
   const { op, pathArray, value } = operation
   if ( !pathArray.length ) {
     return
@@ -289,7 +292,7 @@ export abstract class IObservableDomain {
 }
 
 
-class ProxyMutationObjectHandler<T extends object> {
+export class ProxyMutationObjectHandler<T extends object> {
   readonly pathArray: string[]
   readonly deleted: Record<string, boolean> = {}
   readonly original: Partial<T> = {}
@@ -300,7 +303,7 @@ class ProxyMutationObjectHandler<T extends object> {
   }
 
   get <K extends keyof T>(target: T, prop: K) {
-    if (typeof prop === "symbol") {
+    if (typeof prop === "symbol" || prop === 'hasOwnProperty') {
       return Reflect.get(target, prop);
     }
 

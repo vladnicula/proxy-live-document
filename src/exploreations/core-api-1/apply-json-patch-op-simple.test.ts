@@ -1,4 +1,4 @@
-import { applyJSONPatchOperationV2 as applyJSONPatchOperation } from "."
+import { applyJSONPatchOperation } from "."
 
 describe('applyJSONPatchOperation - simple', () => {
   describe('plain structure', () => {

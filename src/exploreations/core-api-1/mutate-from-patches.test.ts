@@ -106,7 +106,7 @@ describe('mutate from patches', () => {
     expect(node1).toHaveProperty('type', 'something-else')
     expect(node2).toHaveProperty('type', 'div')
 
-
+    // debugger
     mutateFromPatches(otherDoc, patches)
     
     expect(observableCallback).toHaveBeenCalledTimes(1)
@@ -130,7 +130,7 @@ describe('mutate from patches', () => {
     expect(observableCallback).toHaveBeenCalledTimes(2)
   })
 
-  it.only('applies deep via methods', () => {
+  it('applies deep via methods', () => {
     type StaticValue = {
       type: 'static',
       content: string
@@ -155,7 +155,7 @@ describe('mutate from patches', () => {
         this.instances[node.id] = node;
       }
       
-      consumePatch (op: JSONPatchEnhanced) {
+      applyPatch (op: JSONPatchEnhanced) {
         if (op.op === 'add' ) {
           // needs to know about all subtree here. In a way, it's ok, beucase this 
           // entity is indeed a composition of the children. But it might
