@@ -91,7 +91,8 @@ const combineIntersectedPathOperations = (into: JSONPatchEnhanced, from: JSONPat
     case "remove":
       return true
     case "add":
-      return mergeWithParentAdd(into, from)
+      mergeWithParentAdd(into, from)
+      return true
     case "replace":
       return true
     default:
@@ -111,7 +112,6 @@ const mergeWithParentAdd = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) =>
     },
     mergeIntoValue
   )
-  return true
 }
 
 export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
