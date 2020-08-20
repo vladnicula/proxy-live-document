@@ -47,6 +47,9 @@ describe('applyJSONPatchOperation - instances', () => {
     private instances: Record<string, ElementNode> = {}
 
     addNode (node: ElementNode) {
+      if ( Object.keys(this.instances).length > 2 ) {
+        throw new Error(`Cannot have more than 3 nodes to simulate constraints`)
+      } 
       this.instances[node.id] = node
     }
 
@@ -155,6 +158,38 @@ describe('applyJSONPatchOperation - instances', () => {
     })
 
     expect(initialNode).not.toEqual(testDoc.nodes.getById('id1'))
+  })
+
+
+  it('applies prevents adding a 4th node according to domain constraints', () => {
+    const testDoc = new Document()
+    const initialNode1 = new ElementNode('id1')
+    const initialNode2 = new ElementNode('id2')
+    const initialNode3 = new ElementNode('id3')
+    testDoc.nodes.addNode(initialNode1)
+    testDoc.nodes.addNode(initialNode2)
+    testDoc.nodes.addNode(initialNode3)
+
+    // const patches = mutate(testDoc, (mutable) => {
+    //   const replacingNode = new ElementNode('id1')
+    //   replacingNode.setStyle('padding', '22px')
+    //   mutable.nodes.addNode(replacingNode)
+    // })
+
+    const patch =  {
+      op: 'add' as 'add',
+      path: '/nodes/instances/id4',
+      value: {
+        styles: { padding: '22px' },
+        id: 'id4',
+      },
+      pathArray: [ 'nodes', 'instances', 'id4' ]
+    }
+
+    const execution = () => {
+      applyJSONPatchOperation(patch, testDoc)
+    }
+    expect(execution).toThrow()
   })
   
 })
