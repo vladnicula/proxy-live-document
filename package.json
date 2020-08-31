@@ -1,5 +1,5 @@
 {
-  "name": "live-document-edits-via-proxy",
+  "name": "proxy-live-document",
   "version": "1.0.0",
   "description": "Mutable, observable, patchable JSON state wrapped in Smart Domains",
   "main": "./dist/index.js",
