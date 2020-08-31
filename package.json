@@ -1,15 +1,18 @@
 {
   "name": "live-document-edits-via-proxy",
   "version": "1.0.0",
-  "description": "An exploration of mutating a document object (or state) in a similar way to AutoMerge library, with the goal of both Real Time collaboration as well as observable changes for UIs.",
-  "main": "index.html",
+  "description": "Mutable, observable, patchable JSON state wrapped in Smart Domains",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/vladnicula/proxy-live-document"
+  },
   "scripts": {
-    "start": "parcel index.html --open",
-    "build": "parcel build index.html",
+    "build": "tsc",
     "test": "jest"
   },
   "dependencies": {
-    "immer": "^6.0.9",
     "lodash.isequal": "4.5.0",
     "lodash.merge": "^4.6.2",
     "uuid": "^8.1.0"
@@ -21,7 +24,6 @@
     "@types/lodash.merge": "^4.6.6",
     "@types/uuid": "^8.0.0",
     "jest": "^26.0.1",
-    "parcel-bundler": "^1.6.1",
     "typescript": "^3.9.3"
   },
   "keywords": []
