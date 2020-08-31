@@ -126,7 +126,10 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPat
   let lastPatcher: {
     entity: Record<string, unknown>
     pathArray: string []
-  } | null = null
+  } | null = currentStateTree.hasOwnProperty(Patcher) ? {
+    entity: currentStateTree,
+    pathArray: [...pathArray]
+  } : null
 
   for ( let i = 0; i < pathArrayLen - 1; i += 1 ) {
     itPathPart = pathArray[i]
@@ -134,7 +137,6 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPat
       throw new Error(`applyJSONPatchOperation cannot walk json patch path ${pathArray.join('/')}. Cannot access path ${[...pathArray].slice(0, i).join('/')}.`)
     }
     currentStateTree = (currentStateTree as Record<string, unknown>)[itPathPart] as Record<string, unknown>
-
     if ( currentStateTree.hasOwnProperty(Patcher) ) {
       lastPatcher = {
         entity: currentStateTree,
