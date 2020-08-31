@@ -1,4 +1,4 @@
-import { ProxyMutationObjectHandler } from "."
+import { ProxyMutationObjectHandler } from "../src"
 
 describe('proxy mutation handler behaviour', () => {
 

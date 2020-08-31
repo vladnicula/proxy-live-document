@@ -1,4 +1,4 @@
-import { mutate, select } from "."
+import { mutate, select } from "../src"
 
 describe('flexible select', () => {
   it('selects any key in given object', () => {

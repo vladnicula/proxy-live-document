@@ -1,4 +1,4 @@
-import { Patcher, JSONPatchEnhanced, mutate, mutateFromPatches } from "."
+import { Patcher, JSONPatchEnhanced, mutate, mutateFromPatches } from "../src"
 
 class SubTask {
   [Patcher] = true
@@ -20,7 +20,7 @@ class SubTask {
   
     switch (op) {
       case 'replace':  
-        console.log('handle replace op', pathArray, value, {lastPartOfPath})
+        // console.log('handle replace op', pathArray, value, {lastPartOfPath})
         break;
     }
   }
@@ -136,7 +136,7 @@ class TaskListProject {
 
     if ( pathArray[0] === 'tasks' && pathArray.length > 1 ) {
       const taskValue = value as Record<string, unknown>
-      console.log(`applyPatch in project`, patch)
+      // console.log(`applyPatch in project`, patch)
       switch (op) {
         case 'add':  
           this.createTask(taskValue.title as string, lastPartOfPath, taskValue.checked as boolean)

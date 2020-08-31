@@ -1,4 +1,4 @@
-import { mutate, select } from "."
+import { mutate, select } from "../src"
 
 describe('basic select', () => {
   it('select exactly the modified value', () => {

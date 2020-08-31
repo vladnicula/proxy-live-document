@@ -1,6 +1,6 @@
 import merge from 'lodash.merge'
 
-import { mutate } from './'
+import { mutate } from '../src'
 
 const document = {
   nodes: {} as Record<string, ElementNode>

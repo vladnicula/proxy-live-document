@@ -1,4 +1,4 @@
-import { applyJSONPatchOperation, Patcher, JSONPatchEnhanced } from "."
+import { applyJSONPatchOperation, Patcher, JSONPatchEnhanced } from "../src"
 
 describe('applyJSONPatchOperation - instances', () => {
   class ElementStyle {

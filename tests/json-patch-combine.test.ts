@@ -1,6 +1,6 @@
 import merge from "lodash.merge"
 
-import { combinedJSONPatches, mutate, JSONPatchEnhanced } from "."
+import { combinedJSONPatches, mutate, JSONPatchEnhanced } from "../src"
 
 describe('json patchs combine', () => {
 

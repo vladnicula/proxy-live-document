@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid'
-import { select, mutate } from '.'
+import { select, mutate } from "../src"
 
 describe('class hierarchy example', () => {
   class StaticValue {

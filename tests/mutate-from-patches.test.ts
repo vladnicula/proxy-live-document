@@ -1,4 +1,4 @@
-import { mutate, mutateFromPatches, select, combinedJSONPatches, Patcher, JSONPatchEnhanced } from "."
+import { mutate, mutateFromPatches, select, combinedJSONPatches, Patcher, JSONPatchEnhanced } from "../src"
 
 describe('mutate from patches', () => {
   it('applies patches on compatible structures', () => {

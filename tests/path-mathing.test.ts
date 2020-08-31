@@ -1,4 +1,4 @@
-import { pathMatchesSource } from "."
+import { pathMatchesSource } from "../src"
 
 describe('pathMatchesSource', () => {
 
