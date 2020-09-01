@@ -82,7 +82,7 @@ describe('flexible select', () => {
     expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
 
     mutate(stateTree, (modifiable) => {
-      delete modifiable.subtree1.b.b2.b22
+      delete modifiable.subtree1.b.b2?.b22
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(2)

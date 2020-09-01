@@ -26,7 +26,6 @@ describe('basic select', () => {
 
     selector.observe(callbackSpy)
     selector.observe(callbackSpy2)
-
     mutate(state, (modifiable) => {
       modifiable.observeMe = 'changed'
     })
