@@ -3,6 +3,8 @@ type ObjectTree = object
 type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 
 export const Patcher = Symbol('Patcher')
+const WatcherProxy = Symbol('WatcherProxy')
+const TargetRef = Symbol('TargetRef')
 
 // can we have a better way to define the type of this one?
 let MutationProxyMap: ProxyMapType<ObjectTree> = new WeakMap()
@@ -223,7 +225,7 @@ export const mutate = <T extends ObjectTree>(
 const proxyfyAccess = <T extends ObjectTree>(target: T, path: string[] = []): T => {
   let proxy = MutationProxyMap.get(target)
   if ( !proxy ) {
-    proxy = new Proxy(target, new ProxyMutationObjectHandler(path))
+    proxy = new Proxy(target, new ProxyMutationObjectHandler(target, path))
     MutationProxyMap.set(target, proxy)
   }
 
@@ -249,13 +251,23 @@ export class ProxyMutationObjectHandler<T extends object> {
   readonly pathArray: string[]
   readonly deleted: Record<string, boolean> = {}
   readonly original: Partial<T> = {}
+  readonly targetRef: T
   readonly ops: JSONPatch[] = []
 
-  constructor (pathArray: string []) {
+  constructor (target: T, pathArray: string []) {
     this.pathArray = pathArray
+    this.targetRef = target
   }
 
   get <K extends keyof T>(target: T, prop: K) {
+    if ( typeof prop === 'symbol' && prop === TargetRef ) {
+      return this.targetRef
+    }
+
+    if ( typeof prop === 'symbol' && prop === WatcherProxy ) {
+      return true
+    }
+
     if (typeof prop === "symbol" || prop === 'hasOwnProperty') {
       return Reflect.get(target, prop);
     }
@@ -275,7 +287,6 @@ export class ProxyMutationObjectHandler<T extends object> {
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
     dirtyPaths.add(this)
-
     let opType: 'add' | 'replace' | 'remove' = 'add'
     if ( target[prop] ) {
       opType = value ? 'replace' : 'remove'
@@ -306,7 +317,12 @@ export class ProxyMutationObjectHandler<T extends object> {
      */
     let opValue = value
     if ( typeof value === 'object' && value !== null ) {
-      opValue = {...value}
+      const objectValue = value as unknown as object
+      if ( objectValue.hasOwnProperty(WatcherProxy) ) {
+        opValue = (objectValue as unknown as { [TargetRef]: T[K] })[TargetRef] 
+      } else {
+        opValue = {...value}
+      }
     }
 
     /**
@@ -365,6 +381,12 @@ export class ProxyMutationObjectHandler<T extends object> {
   getOwnPropertyDescriptor <K extends keyof T>(target: T, prop: K) {
     if ( typeof prop === 'string' && this.deleted[prop] ) {
       return undefined
+    }
+    if ( prop === WatcherProxy ) {
+      return {
+        configurable: true,
+        value: true
+      }
     }
     return Reflect.getOwnPropertyDescriptor(target, prop)
   }
@@ -573,4 +595,35 @@ export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
   });
   castSelectorManager.registerSelector(stateTree, selector)
   return selector
+}
+
+export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
+  const { path, pathArray, op, value, old} = patch
+
+  switch ( op ) {
+    case 'add':
+      return {
+        op: 'remove',
+        value: old,
+        old: value,
+        pathArray,
+        path
+      }
+    case 'remove':
+      return {
+        op: 'add',
+        value: old,
+        old: value,
+        pathArray,
+        path
+      }
+    case 'replace':
+      return {
+        op: 'replace',
+        value: old,
+        old: value,
+        pathArray,
+        path
+      }
+  }
 }

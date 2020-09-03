@@ -86,7 +86,9 @@ class TaskListProject {
       throw new Error(`Max 3 subtasks please!`)
     } 
     subTask.parentId = taskId
-    this.taskHierarchy[taskId] = this.taskHierarchy[taskId] || {}
+    if ( !this.taskHierarchy[taskId] ) {
+      this.taskHierarchy[taskId] = {}
+    }
     this.taskHierarchy[taskId][subTask.id] = true
     this.tasks[subTask.id] = subTask
   }
@@ -271,7 +273,8 @@ describe('Task List project test suite', () => {
 
     const taskKeysSubscription = select(taskListProject, [
       `tasks/${targetTaskId}/**`,
-      `taskHierarchy/${targetTaskId}`
+      `taskHierarchy/${targetTaskId}`,
+      `taskHierarchy/${targetTaskId}/**`,
     ], (doc) => {
       mapperSpy()
       return {
@@ -308,6 +311,15 @@ describe('Task List project test suite', () => {
     expect(callbackSpy).toHaveBeenCalledTimes(3)
     expect(mapperSpy).toHaveBeenCalledTimes(3)
 
+  })
+
+  it('patches are created correclty for ops that deal with object reassignment internally', () => {
+    const taskListProject = new TaskListProject()
+    const patches = mutate(taskListProject, (doc) => {
+      const myNewTask = new Task(`3213421451212`, 'Buy bread')
+      doc.addTask(myNewTask)
+    })
+    expect(taskListProject.taskHierarchy.root).toEqual(patches[1].value)
   })
   
 })
