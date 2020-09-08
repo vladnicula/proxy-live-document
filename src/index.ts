@@ -202,6 +202,10 @@ export const mutate = <T extends ObjectTree>(
       const sourcePath = path.length ? `/${path.join('/')}` : ''
       for ( let i = 0; i < ops.length; i += 1 ) {
         const op = ops[i] 
+        const { old, value } = op
+        if ( old === value ) {
+          continue
+        }
         acc.push({
           ...op,
           path: `${sourcePath}/${op.path}`,

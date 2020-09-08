@@ -102,7 +102,7 @@ describe('basic select', () => {
   it('select support multple paths', () => {
 
     const state = {
-      observeMe: 'hello',
+      observeMe: 'something',
       observeMeToo: 'i am here',
       dontObserveMe: 'i am not supposed to be observed'
     }
@@ -114,7 +114,7 @@ describe('basic select', () => {
       state, 
       [
         '/observeMe',
-        '/observeMeToo'
+        '/observeMeToo',
       ],
       (currentState) => {
         mapperSpyThatShouldRun()
