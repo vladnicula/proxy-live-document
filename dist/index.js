@@ -1,7 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.select = exports.pathMatchesSource = exports.observe = exports.ProxyMutationObjectHandler = exports.IObservableDomain = exports.mutate = exports.mutateFromPatches = exports.applyJSONPatchOperation = exports.combinedJSONPatches = exports.applyInternalMutation = exports.Patcher = void 0;
+exports.inversePatch = exports.select = exports.pathMatchesSource = exports.observe = exports.ProxyMutationObjectHandler = exports.IObservableDomain = exports.mutate = exports.mutateFromPatches = exports.applyJSONPatchOperation = exports.combinedJSONPatches = exports.applyInternalMutation = exports.Patcher = void 0;
 exports.Patcher = Symbol('Patcher');
+const WatcherProxy = Symbol('WatcherProxy');
+const TargetRef = Symbol('TargetRef');
 // can we have a better way to define the type of this one?
 let MutationProxyMap = new WeakMap();
 let dirtyPaths = new Set();
@@ -148,6 +150,10 @@ exports.mutate = (stateTree, callback) => {
         const sourcePath = path.length ? `/${path.join('/')}` : '';
         for (let i = 0; i < ops.length; i += 1) {
             const op = ops[i];
+            const { old, value } = op;
+            if (old === value) {
+                continue;
+            }
             acc.push({
                 ...op,
                 path: `${sourcePath}/${op.path}`,
@@ -165,7 +171,7 @@ exports.mutate = (stateTree, callback) => {
 const proxyfyAccess = (target, path = []) => {
     let proxy = MutationProxyMap.get(target);
     if (!proxy) {
-        proxy = new Proxy(target, new ProxyMutationObjectHandler(path));
+        proxy = new Proxy(target, new ProxyMutationObjectHandler(target, path));
         MutationProxyMap.set(target, proxy);
     }
     return proxy;
@@ -183,13 +189,20 @@ class IObservableDomain {
 }
 exports.IObservableDomain = IObservableDomain;
 class ProxyMutationObjectHandler {
-    constructor(pathArray) {
+    constructor(target, pathArray) {
         this.deleted = {};
         this.original = {};
         this.ops = [];
         this.pathArray = pathArray;
+        this.targetRef = target;
     }
     get(target, prop) {
+        if (typeof prop === 'symbol' && prop === TargetRef) {
+            return this.targetRef;
+        }
+        if (typeof prop === 'symbol' && prop === WatcherProxy) {
+            return true;
+        }
         if (typeof prop === "symbol" || prop === 'hasOwnProperty') {
             return Reflect.get(target, prop);
         }
@@ -234,7 +247,13 @@ class ProxyMutationObjectHandler {
          */
         let opValue = value;
         if (typeof value === 'object' && value !== null) {
-            opValue = { ...value };
+            const objectValue = value;
+            if (objectValue.hasOwnProperty(WatcherProxy)) {
+                opValue = objectValue[TargetRef];
+            }
+            else {
+                opValue = { ...value };
+            }
         }
         /**
          * Same thing for the old value. If we reference an object
@@ -284,6 +303,12 @@ class ProxyMutationObjectHandler {
     getOwnPropertyDescriptor(target, prop) {
         if (typeof prop === 'string' && this.deleted[prop]) {
             return undefined;
+        }
+        if (prop === WatcherProxy) {
+            return {
+                configurable: true,
+                value: true
+            };
         }
         return Reflect.getOwnPropertyDescriptor(target, prop);
     }
@@ -442,5 +467,34 @@ exports.select = (stateTree, selectors, mappingFn) => {
     });
     castSelectorManager.registerSelector(stateTree, selector);
     return selector;
+};
+exports.inversePatch = (patch) => {
+    const { path, pathArray, op, value, old } = patch;
+    switch (op) {
+        case 'add':
+            return {
+                op: 'remove',
+                value: old,
+                old: value,
+                pathArray,
+                path
+            };
+        case 'remove':
+            return {
+                op: 'add',
+                value: old,
+                old: value,
+                pathArray,
+                path
+            };
+        case 'replace':
+            return {
+                op: 'replace',
+                value: old,
+                old: value,
+                pathArray,
+                path
+            };
+    }
 };
 //# sourceMappingURL=index.js.map

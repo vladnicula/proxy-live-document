@@ -40,8 +40,9 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     readonly pathArray: string[];
     readonly deleted: Record<string, boolean>;
     readonly original: Partial<T>;
+    readonly targetRef: T;
     readonly ops: JSONPatch[];
-    constructor(pathArray: string[]);
+    constructor(target: T, pathArray: string[]);
     get<K extends keyof T>(target: T, prop: K): any;
     set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;
     /**
@@ -76,4 +77,5 @@ declare class StateTreeSelector<T extends ObjectTree, MP extends SeletorMappingB
 }
 declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
 export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => StateTreeSelector<T, MP>;
+export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
 export {};
