@@ -194,9 +194,9 @@ describe('mutate from patches', () => {
   it('can use combinedJSONPatches to sync larger chunks of changes', () => {
     const stateInClientOne = {
       observeMe: 'hello'
-    }
+    } as Record<string, string>
 
-    const stateInClientTwo = {...stateInClientOne}
+    const stateInClientTwo = {...stateInClientOne} as Record<string, string>
 
     const patches1 = mutate(stateInClientOne, (modifiable) => {
       modifiable.observeMe = 'changed'
