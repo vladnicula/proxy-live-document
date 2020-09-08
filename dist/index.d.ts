@@ -1,4 +1,5 @@
 declare type ObjectTree = object;
+declare type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>;
 export declare const Patcher: unique symbol;
 declare type JSONPatch = {
     op: 'replace' | 'remove' | 'add';
@@ -22,7 +23,16 @@ export declare const applyInternalMutation: <T extends object>(mutations: JSONPa
 export declare const combinedJSONPatches: (operations: JSONPatchEnhanced[]) => JSONPatchEnhanced[];
 export declare const applyJSONPatchOperation: <T extends object>(operation: JSONPatchEnhanced, stateTree: T) => void;
 export declare const mutateFromPatches: <T extends object>(stateTree: T, patches: JSONPatchEnhanced[]) => void;
-export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[];
+export declare class MutationsManager {
+    mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>>;
+    mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>>;
+    private getSubProxy;
+    startMutation(target: ObjectTree): void;
+    hasRoot(rootA: any): boolean;
+    commit(target: ObjectTree): JSONPatchEnhanced[];
+    mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown): JSONPatchEnhanced[] | undefined;
+}
+export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[] | undefined;
 /**
  * When working with domain objects, it's probably best to have a
  * method that serializes them so we can 'snapshot' how they origianlly
@@ -42,7 +52,14 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     readonly original: Partial<T>;
     readonly targetRef: T;
     readonly ops: JSONPatch[];
-    constructor(target: T, pathArray: string[]);
+    readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
+    readonly proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[]) => T;
+    constructor(params: {
+        target: T;
+        pathArray?: string[];
+        dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
+        proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[]) => T;
+    });
     get<K extends keyof T>(target: T, prop: K): any;
     set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;
     /**

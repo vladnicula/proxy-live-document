@@ -1,12 +1,9 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.inversePatch = exports.select = exports.pathMatchesSource = exports.observe = exports.ProxyMutationObjectHandler = exports.IObservableDomain = exports.mutate = exports.mutateFromPatches = exports.applyJSONPatchOperation = exports.combinedJSONPatches = exports.applyInternalMutation = exports.Patcher = void 0;
+exports.inversePatch = exports.select = exports.pathMatchesSource = exports.observe = exports.ProxyMutationObjectHandler = exports.IObservableDomain = exports.mutate = exports.MutationsManager = exports.mutateFromPatches = exports.applyJSONPatchOperation = exports.combinedJSONPatches = exports.applyInternalMutation = exports.Patcher = void 0;
 exports.Patcher = Symbol('Patcher');
 const WatcherProxy = Symbol('WatcherProxy');
 const TargetRef = Symbol('TargetRef');
-// can we have a better way to define the type of this one?
-let MutationProxyMap = new WeakMap();
-let dirtyPaths = new Set();
 /**
  * Was used to apply changes in the mutation function after all the operatoins finished.
  * I changed that to allow writing immediatly in the mutation. Now, when a class instance
@@ -142,39 +139,93 @@ exports.mutateFromPatches = (stateTree, patches) => {
         }
     });
 };
-exports.mutate = (stateTree, callback) => {
-    const proxy = proxyfyAccess(stateTree);
-    callback(proxy);
-    const patch = Array.from(dirtyPaths).reduce((acc, value) => {
-        const { pathArray: path, ops } = value;
-        const sourcePath = path.length ? `/${path.join('/')}` : '';
-        for (let i = 0; i < ops.length; i += 1) {
-            const op = ops[i];
-            const { old, value } = op;
-            if (old === value) {
-                continue;
+class MutationsManager {
+    constructor() {
+        this.mutationMaps = new Map();
+        this.mutationDirtyPaths = new Map();
+        this.getSubProxy = (target, subTarget, currentPathArray) => {
+            const mutationProxies = this.mutationMaps.get(target);
+            let proxy = mutationProxies === null || mutationProxies === void 0 ? void 0 : mutationProxies.get(subTarget);
+            if (!proxy) {
+                proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
+                    target: subTarget,
+                    dirtyPaths: this.mutationDirtyPaths.get(target),
+                    pathArray: currentPathArray,
+                    proxyfyAccess: (someOtherSubTarget, someOtherPathArray) => {
+                        return this.getSubProxy(target, someOtherSubTarget, someOtherPathArray);
+                    }
+                }));
+                mutationProxies === null || mutationProxies === void 0 ? void 0 : mutationProxies.set(subTarget, proxy);
             }
-            acc.push({
-                ...op,
-                path: `${sourcePath}/${op.path}`,
-                pathArray: [...path, op.path]
-            });
-        }
-        return acc;
-    }, []);
-    const combinedPatches = exports.combinedJSONPatches(patch);
-    MutationProxyMap = new WeakMap();
-    dirtyPaths = new Set();
-    selectorsManager.processPatches(stateTree, combinedPatches);
-    return combinedPatches;
-};
-const proxyfyAccess = (target, path = []) => {
-    let proxy = MutationProxyMap.get(target);
-    if (!proxy) {
-        proxy = new Proxy(target, new ProxyMutationObjectHandler(target, path));
-        MutationProxyMap.set(target, proxy);
+            return proxy;
+        };
     }
-    return proxy;
+    startMutation(target) {
+        var _a;
+        this.mutationMaps.set(target, new WeakMap());
+        this.mutationDirtyPaths.set(target, new Set());
+        const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
+            target,
+            dirtyPaths: this.mutationDirtyPaths.get(target),
+            proxyfyAccess: (subTarget, pathArray) => {
+                return this.getSubProxy(target, subTarget, pathArray);
+            }
+        }));
+        (_a = this.mutationMaps.get(target)) === null || _a === void 0 ? void 0 : _a.set(target, rootProxy);
+    }
+    hasRoot(rootA) {
+        return this.mutationMaps.has(rootA);
+    }
+    commit(target) {
+        const dirtyPaths = this.mutationDirtyPaths.get(target);
+        if (!dirtyPaths) {
+            return [];
+        }
+        const patch = Array.from(dirtyPaths).reduce((acc, value) => {
+            const { pathArray: path, ops } = value;
+            const sourcePath = path.length ? `/${path.join('/')}` : '';
+            for (let i = 0; i < ops.length; i += 1) {
+                const op = ops[i];
+                const { old, value } = op;
+                if (old === value) {
+                    continue;
+                }
+                acc.push({
+                    ...op,
+                    path: `${sourcePath}/${op.path}`,
+                    pathArray: [...path, op.path]
+                });
+            }
+            return acc;
+        }, []);
+        const combinedPatches = exports.combinedJSONPatches(patch);
+        selectorsManager.processPatches(target, combinedPatches);
+        this.mutationMaps.delete(target);
+        this.mutationDirtyPaths.delete(target);
+        return combinedPatches;
+    }
+    mutate(target, callback) {
+        var _a;
+        const isOuterMostTransactionForThisObject = !this.hasRoot(target);
+        if (isOuterMostTransactionForThisObject) {
+            this.startMutation(target);
+        }
+        const proxyWrapper = (_a = this.mutationMaps.get(target)) === null || _a === void 0 ? void 0 : _a.get(target);
+        if (!proxyWrapper) {
+            return;
+        }
+        callback(proxyWrapper);
+        // only return the patches on the top most level
+        if (isOuterMostTransactionForThisObject) {
+            return this.commit(target);
+        }
+        return [];
+    }
+}
+exports.MutationsManager = MutationsManager;
+const mutationsManager = new MutationsManager();
+exports.mutate = (stateTree, callback) => {
+    return mutationsManager.mutate(stateTree, callback);
 };
 /**
  * When working with domain objects, it's probably best to have a
@@ -189,12 +240,15 @@ class IObservableDomain {
 }
 exports.IObservableDomain = IObservableDomain;
 class ProxyMutationObjectHandler {
-    constructor(target, pathArray) {
+    constructor(params) {
         this.deleted = {};
         this.original = {};
         this.ops = [];
+        const { target, pathArray = [], proxyfyAccess, dirtyPaths } = params;
         this.pathArray = pathArray;
         this.targetRef = target;
+        this.proxyfyAccess = proxyfyAccess;
+        this.dirtyPaths = dirtyPaths;
     }
     get(target, prop) {
         if (typeof prop === 'symbol' && prop === TargetRef) {
@@ -211,14 +265,14 @@ class ProxyMutationObjectHandler {
         }
         const subEntity = target[prop];
         if (typeof subEntity === 'object' && subEntity !== null) {
-            return proxyfyAccess(subEntity, [...this.pathArray, prop]);
+            return this.proxyfyAccess(subEntity, [...this.pathArray, prop]);
         }
         return subEntity;
     }
     set(target, prop, value) {
         // console.log('set handler called', [prop, value], this.path)
         // TODO consider moving this from a global into a normal var
-        dirtyPaths.add(this);
+        this.dirtyPaths.add(this);
         let opType = 'add';
         if (target[prop]) {
             opType = value ? 'replace' : 'remove';
@@ -278,7 +332,7 @@ class ProxyMutationObjectHandler {
     deleteProperty(target, prop) {
         if (prop in target) {
             if (typeof prop === 'string') {
-                dirtyPaths.add(this);
+                this.dirtyPaths.add(this);
                 this.deleted[prop] = true;
                 if (!this.original.hasOwnProperty(prop)) {
                     this.original[prop] = target[prop];

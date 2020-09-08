@@ -6,11 +6,6 @@ export const Patcher = Symbol('Patcher')
 const WatcherProxy = Symbol('WatcherProxy')
 const TargetRef = Symbol('TargetRef')
 
-// can we have a better way to define the type of this one?
-let MutationProxyMap: ProxyMapType<ObjectTree> = new WeakMap()
-
-let dirtyPaths = new Set<ProxyMutationObjectHandler<ObjectTree>>()
-
 type JSONPatch = {
   op: 'replace' | 'remove' | 'add',
   path: string,
@@ -187,53 +182,118 @@ export const mutateFromPatches =  <T extends ObjectTree>(
   })
 }
 
+export class MutationsManager {
+
+  mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
+  mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>> = new Map()
+
+  private getSubProxy = <T extends ObjectTree>(target: ObjectTree, subTarget: T, currentPathArray?: string[]): T => {
+    const mutationProxies = this.mutationMaps.get(target)
+    let proxy = mutationProxies?.get(subTarget) as T | undefined
+    if ( !proxy ) {
+      proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
+        target: subTarget,
+        dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
+        pathArray: currentPathArray,
+        proxyfyAccess:  <T extends ObjectTree>(someOtherSubTarget: T, someOtherPathArray?: string[]) => {
+          return this.getSubProxy(target, someOtherSubTarget, someOtherPathArray)
+        }
+      })) as T
+      mutationProxies?.set(subTarget, proxy)
+    }
+
+    return proxy
+  }
+
+  startMutation (target: ObjectTree) {
+    this.mutationMaps.set(target, new WeakMap() as ProxyMapType<ObjectTree>)
+    this.mutationDirtyPaths.set(target, new Set<ProxyMutationObjectHandler<ObjectTree>>())
+
+    const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
+      target,
+      dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
+      proxyfyAccess: <T extends ObjectTree>(subTarget: T, pathArray?: string[]) => {
+        return this.getSubProxy(target, subTarget, pathArray)
+      }
+    }))
+    this.mutationMaps.get(target)?.set(target, rootProxy)
+  }
+
+  hasRoot (rootA: any) {
+    return this.mutationMaps.has(rootA)
+  }
+
+  commit (target: ObjectTree) {
+    const dirtyPaths = this.mutationDirtyPaths.get(target) 
+    if ( !dirtyPaths ) {
+      return []
+    }
+    const patch = Array.from(dirtyPaths).reduce(
+      (
+        acc: JSONPatchEnhanced[],
+        value,
+      ) => {
+        const { pathArray: path, ops } = value
+        const sourcePath = path.length ? `/${path.join('/')}` : ''
+        for ( let i = 0; i < ops.length; i += 1 ) {
+          const op = ops[i] 
+          const { old, value } = op
+          if ( old === value ) {
+            continue
+          }
+          acc.push({
+            ...op,
+            path: `${sourcePath}/${op.path}`,
+            pathArray: [...path, op.path]
+          })
+        }
+        return acc
+      }, 
+      []
+    )
+  
+    const combinedPatches = combinedJSONPatches(patch)
+    selectorsManager.processPatches(target, combinedPatches)
+    
+    this.mutationMaps.delete(target)
+    this.mutationDirtyPaths.delete(target)
+
+    return combinedPatches
+  }
+
+  mutate <T extends ObjectTree>(
+    target: T,
+    callback: (mutable: T) => unknown
+  ) {
+
+    const isOuterMostTransactionForThisObject = !this.hasRoot(target)
+    if ( isOuterMostTransactionForThisObject ) {
+      this.startMutation(target)
+    }
+
+    const proxyWrapper = this.mutationMaps.get(target)?.get(target) as T
+    if ( !proxyWrapper ) {
+      return
+    }
+
+    callback(proxyWrapper)
+
+    // only return the patches on the top most level
+    if ( isOuterMostTransactionForThisObject ) {
+      return this.commit(target)
+    }
+
+    return []
+  }
+} 
+
+const mutationsManager = new MutationsManager()
+
 export const mutate = <T extends ObjectTree>(
   stateTree: T,
   callback: (mutable: T) => unknown
 ) => {
-  const proxy = proxyfyAccess(stateTree)
-  callback(proxy as T)
-  const patch = Array.from(dirtyPaths).reduce(
-    (
-      acc: JSONPatchEnhanced[],
-      value,
-    ) => {
-      const { pathArray: path, ops } = value
-      const sourcePath = path.length ? `/${path.join('/')}` : ''
-      for ( let i = 0; i < ops.length; i += 1 ) {
-        const op = ops[i] 
-        const { old, value } = op
-        if ( old === value ) {
-          continue
-        }
-        acc.push({
-          ...op,
-          path: `${sourcePath}/${op.path}`,
-          pathArray: [...path, op.path]
-        })
-      }
-      return acc
-    }, 
-    []
-  )
-
-  const combinedPatches = combinedJSONPatches(patch)
-  MutationProxyMap = new WeakMap()
-  dirtyPaths = new Set()
-
-  selectorsManager.processPatches(stateTree, combinedPatches)
-
-  return combinedPatches
-}
-
-const proxyfyAccess = <T extends ObjectTree>(target: T, path: string[] = []): T => {
-  let proxy = MutationProxyMap.get(target)
-  if ( !proxy ) {
-    proxy = new Proxy(target, new ProxyMutationObjectHandler(target, path))
-    MutationProxyMap.set(target, proxy)
-  }
-
-  return proxy as T
+  return mutationsManager.mutate(stateTree, callback)
 }
 
 /**
@@ -257,10 +317,21 @@ export class ProxyMutationObjectHandler<T extends object> {
   readonly original: Partial<T> = {}
   readonly targetRef: T
   readonly ops: JSONPatch[] = []
+  readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
 
-  constructor (target: T, pathArray: string []) {
+  readonly proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
+
+  constructor (params: {
+    target: T, 
+    pathArray?: string []
+    dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>,
+    proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
+  }) {
+    const { target, pathArray = [], proxyfyAccess, dirtyPaths} = params
     this.pathArray = pathArray
     this.targetRef = target
+    this.proxyfyAccess = proxyfyAccess
+    this.dirtyPaths = dirtyPaths
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -282,7 +353,7 @@ export class ProxyMutationObjectHandler<T extends object> {
 
     const subEntity = target[prop]
     if ( typeof subEntity === 'object' && subEntity !== null ) {
-      return proxyfyAccess(subEntity as unknown as object, [...this.pathArray, prop] as string[])
+      return this.proxyfyAccess(subEntity as unknown as object, [...this.pathArray, prop] as string[])
     }
     return subEntity
   }
@@ -290,7 +361,7 @@ export class ProxyMutationObjectHandler<T extends object> {
   set <K extends keyof T>(target: T, prop: K, value: T[K]) {
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
-    dirtyPaths.add(this)
+    this.dirtyPaths.add(this)
     let opType: 'add' | 'replace' | 'remove' = 'add'
     if ( target[prop] ) {
       opType = value ? 'replace' : 'remove'
@@ -355,7 +426,7 @@ export class ProxyMutationObjectHandler<T extends object> {
   deleteProperty <K extends keyof T>(target: T, prop: K) {
     if (prop in target) {
       if ( typeof prop === 'string' ) {
-        dirtyPaths.add(this)
+        this.dirtyPaths.add(this)
         this.deleted[prop] = true
         
         if ( !this.original.hasOwnProperty(prop) ) {
