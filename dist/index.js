@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.inversePatch = exports.select = exports.pathMatchesSource = exports.observe = exports.ProxyMutationObjectHandler = exports.IObservableDomain = exports.mutate = exports.MutationsManager = exports.mutateFromPatches = exports.applyJSONPatchOperation = exports.combinedJSONPatches = exports.applyInternalMutation = exports.Patcher = void 0;
+exports.inversePatch = exports.select = exports.pathMatchesSource = exports.ProxyMutationObjectHandler = exports.IObservableDomain = exports.mutate = exports.MutationsManager = exports.mutateFromPatches = exports.applyJSONPatchOperation = exports.combinedJSONPatches = exports.applyInternalMutation = exports.Patcher = void 0;
 exports.Patcher = Symbol('Patcher');
 const WatcherProxy = Symbol('WatcherProxy');
 const TargetRef = Symbol('TargetRef');
@@ -380,18 +380,6 @@ class ProxyMutationObjectHandler {
     }
 }
 exports.ProxyMutationObjectHandler = ProxyMutationObjectHandler;
-class ProxySelectorObjectHandler {
-    constructor(pathArray) {
-        this.pathArray = pathArray;
-    }
-    get(target, prop) {
-        return Reflect.get(target, prop);
-    }
-}
-exports.observe = (stateTree, selector) => {
-    const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]));
-    selector(selectionProxy);
-};
 exports.pathMatchesSource = (source, target) => {
     if (source.indexOf('**') === -1 && source.length !== target.length) {
         return false;
@@ -441,6 +429,7 @@ const pathsMatchAnySources = (source, target) => {
 };
 class StateTreeSelector {
     constructor(selectorSet, mappingFn, disposeMethod) {
+        this.lastSelectorValue = null;
         this.callbackSet = new Set();
         this.mappingFn = mappingFn;
         this.disposeMethod = disposeMethod;
@@ -451,21 +440,30 @@ class StateTreeSelector {
             return stringPath.split('/');
         });
     }
+    reshape(callback) {
+        this.selectorSet = callback(this.selectorSet);
+    }
     match(pathArrays) {
         const selectorSet = this.selectorSet;
         return pathsMatchAnySources(selectorSet, pathArrays);
     }
     run(stateTree, pathsArray) {
         const mappedValue = this.mappingFn(stateTree, pathsArray);
-        this.callbackSet.forEach((callback) => {
-            callback(mappedValue);
-        });
+        if (this.lastSelectorValue !== mappedValue) {
+            this.lastSelectorValue = mappedValue;
+            this.callbackSet.forEach((callback) => {
+                callback(mappedValue);
+            });
+        }
     }
     observe(callback) {
         if (this.callbackSet.has(callback)) {
             throw new Error(`this callback was already registered. If you run things twice, create two different callbacks`);
         }
         this.callbackSet.add(callback);
+        return () => {
+            this.callbackSet.delete(callback);
+        };
     }
     dispose() {
         this.disposeMethod();

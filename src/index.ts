@@ -481,28 +481,6 @@ export class ProxyMutationObjectHandler<T extends object> {
   }
 }
 
-class ProxySelectorObjectHandler<T extends object> {
-
-  pathArray: string[]
-
-  constructor (pathArray: string []) {
-    this.pathArray = pathArray
-  }
-
-  get <K extends keyof T> (target: T, prop: K) {
-    return Reflect.get(target, prop)
-  }
-}
-
-export const observe = <T extends ObjectTree>(
-  stateTree: T, 
-  selector: (selectableState: T) => unknown, 
-  // callback: (currentStateTree: T) => unknown
-) => {
-  const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]))
-  selector(selectionProxy)
-}
-
 export const pathMatchesSource = (source: string[], target: string[] ) => {
   if ( source.indexOf('**') === -1 && source.length !== target.length ) {
     return false
@@ -562,6 +540,7 @@ const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
 class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>> {
   private selectorSet: Array<string[]>
   private mappingFn: MP
+  private lastSelectorValue: null | any = null
 
   private callbackSet: Set<(input: ReturnType<MP>) => unknown> = new Set()
   private disposeMethod: Function
@@ -581,6 +560,10 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
     })
   }
 
+  reshape ( callback: (selectorSet: string[][]) => string[][] ) {
+    this.selectorSet = callback(this.selectorSet)
+  }
+
   match ( pathArrays:string[][] ) {
     const selectorSet = this.selectorSet
     return pathsMatchAnySources(selectorSet, pathArrays)
@@ -588,9 +571,12 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
 
   run (stateTree: T, pathsArray: JSONPatchEnhanced[]) {
     const mappedValue = this.mappingFn(stateTree, pathsArray) as ReturnType<MP>
-    this.callbackSet.forEach((callback) => {
-      callback(mappedValue)
-    })
+    if ( this.lastSelectorValue !== mappedValue ) {
+      this.lastSelectorValue = mappedValue
+      this.callbackSet.forEach((callback) => {
+        callback(mappedValue)
+      })
+    }
   }
 
   observe (callback: (input: ReturnType<MP>) => unknown) {
@@ -598,6 +584,9 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
       throw new Error(`this callback was already registered. If you run things twice, create two different callbacks`)
     }
     this.callbackSet.add(callback)
+    return () => {
+      this.callbackSet.delete(callback)
+    }
   }
 
   dispose () {

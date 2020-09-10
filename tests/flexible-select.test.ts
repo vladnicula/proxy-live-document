@@ -55,7 +55,7 @@ describe('flexible select', () => {
         a: { a1: 'ceva' },
         b: { b1: 'something in b', b2: { b21: 'leaf in b', b22: 'another leaf in b'} },
         c: { c1: 'yet another thing', c2: 'more leafes in c', c3: { c31: { c311: 'very deep leaf '} } }
-      } as Record<string, Record<string, string | unknown>>,
+      } as Record<string, Record<string, string | Record<string, unknown>>>,
       ignoreMe: 23
     }
 
@@ -64,7 +64,7 @@ describe('flexible select', () => {
         `subtree1/**`
       ],
       (mappable) => {
-        return mappable.subtree1
+        return {...mappable.subtree1}
       })
 
     const callbackSpy = jest.fn()
@@ -82,14 +82,14 @@ describe('flexible select', () => {
     expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
 
     mutate(stateTree, (modifiable) => {
-      delete modifiable.subtree1.b.b2?.b22
+      delete (modifiable.subtree1.b.b2 as Record<string, string>)?.b22
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(2)
     expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
 
     mutate(stateTree, (modifiable) => {
-      modifiable.subtree1.b.b2.b22 = '321'
+      (modifiable.subtree1.b.b2 as Record<string, string>).b22 = '321'
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(3)

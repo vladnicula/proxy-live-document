@@ -95,7 +95,7 @@ describe('mutate from patches', () => {
     select(
       otherDoc,
       ['/nodes/id1/type'],
-      (mappable) => mappable.nodes.id1
+      (mappable) => ({...mappable.nodes.id1})
     )
     .observe(observableCallback)
 
