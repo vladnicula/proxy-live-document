@@ -5,7 +5,6 @@
   "types": "./dist/index.d.ts",
   "typings": "./dist",
   "main": "./dist/index.main.js",
-  "module": "./dist/index.module.js",
   "browser": "./dist/index.browser.js",
   "repository": {
     "type": "git",

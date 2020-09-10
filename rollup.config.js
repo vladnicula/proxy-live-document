@@ -23,10 +23,10 @@ export default {
       file: pkg.main,
       format: 'cjs'
     },
-    {
-      file: pkg.module,
-      format: 'es' // the preferred format
-    },
+    // {
+    //   file: pkg.module,
+    //   format: 'es' // the preferred format
+    // },
     {
       file: pkg.browser,
       format: 'iife',
