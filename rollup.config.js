@@ -23,15 +23,15 @@ export default {
       file: pkg.main,
       format: 'cjs'
     },
-    // {
-    //   file: pkg.module,
-    //   format: 'es' // the preferred format
-    // },
     {
-      file: pkg.browser,
-      format: 'iife',
-      name: 'PLD' // the global which can be used in a browser
-    }
+      file: pkg.module,
+      format: 'es' // the preferred format
+    },
+    // {
+    //   file: pkg.browser,
+    //   format: 'iife',
+    //   name: 'PLD' // the global which can be used in a browser
+    // }
   ],
   external: [
     ...Object.keys(pkg.dependencies || {}),
