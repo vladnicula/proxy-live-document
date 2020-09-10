@@ -157,4 +157,51 @@ describe('basic select', () => {
       somethingElse: 'this'
     })
   })
+
+  it('support unsubing from subscriptions', () => {
+    const state = {
+      observeMe: 'something',
+    }
+
+    const selectorThatShouldRun = select(
+      state, 
+      [
+        '/observeMe',
+      ],
+      (currentState) => {
+        return {
+          someValue: currentState.observeMe,
+        }
+      }
+    )
+
+    const callbackSpy = jest.fn()
+    const callbackSpy2 = jest.fn()
+    const unsub1 = selectorThatShouldRun.observe(callbackSpy)
+    const unsub2 = selectorThatShouldRun.observe(callbackSpy2)
+
+    mutate(state, (modifiable) => {
+      modifiable.observeMe = 'hello'
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    expect(callbackSpy2).toHaveBeenCalledTimes(1)
+
+    unsub1()
+    mutate(state, (modifiable) => {
+      modifiable.observeMe = 'hello again'
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    expect(callbackSpy2).toHaveBeenCalledTimes(2)
+
+    unsub2()
+    mutate(state, (modifiable) => {
+      modifiable.observeMe = 'hello again'
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+    expect(callbackSpy2).toHaveBeenCalledTimes(2)
+  })
+  
 })

@@ -481,28 +481,6 @@ export class ProxyMutationObjectHandler<T extends object> {
   }
 }
 
-class ProxySelectorObjectHandler<T extends object> {
-
-  pathArray: string[]
-
-  constructor (pathArray: string []) {
-    this.pathArray = pathArray
-  }
-
-  get <K extends keyof T> (target: T, prop: K) {
-    return Reflect.get(target, prop)
-  }
-}
-
-export const observe = <T extends ObjectTree>(
-  stateTree: T, 
-  selector: (selectableState: T) => unknown, 
-  // callback: (currentStateTree: T) => unknown
-) => {
-  const selectionProxy = new Proxy(stateTree, new ProxySelectorObjectHandler([]))
-  selector(selectionProxy)
-}
-
 export const pathMatchesSource = (source: string[], target: string[] ) => {
   if ( source.indexOf('**') === -1 && source.length !== target.length ) {
     return false
@@ -598,6 +576,9 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
       throw new Error(`this callback was already registered. If you run things twice, create two different callbacks`)
     }
     this.callbackSet.add(callback)
+    return () => {
+      this.callbackSet.delete(callback)
+    }
   }
 
   dispose () {
