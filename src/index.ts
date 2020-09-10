@@ -540,6 +540,7 @@ const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
 class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>> {
   private selectorSet: Array<string[]>
   private mappingFn: MP
+  private lastSelectorValue: null | any = null
 
   private callbackSet: Set<(input: ReturnType<MP>) => unknown> = new Set()
   private disposeMethod: Function
@@ -559,6 +560,10 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
     })
   }
 
+  reshape ( callback: (selectorSet: string[][]) => string[][] ) {
+    this.selectorSet = callback(this.selectorSet)
+  }
+
   match ( pathArrays:string[][] ) {
     const selectorSet = this.selectorSet
     return pathsMatchAnySources(selectorSet, pathArrays)
@@ -566,9 +571,12 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
 
   run (stateTree: T, pathsArray: JSONPatchEnhanced[]) {
     const mappedValue = this.mappingFn(stateTree, pathsArray) as ReturnType<MP>
-    this.callbackSet.forEach((callback) => {
-      callback(mappedValue)
-    })
+    if ( this.lastSelectorValue !== mappedValue ) {
+      this.lastSelectorValue = mappedValue
+      this.callbackSet.forEach((callback) => {
+        callback(mappedValue)
+      })
+    }
   }
 
   observe (callback: (input: ReturnType<MP>) => unknown) {

@@ -64,7 +64,7 @@ describe('flexible select', () => {
         `subtree1/**`
       ],
       (mappable) => {
-        return mappable.subtree1
+        return {...mappable.subtree1}
       })
 
     const callbackSpy = jest.fn()

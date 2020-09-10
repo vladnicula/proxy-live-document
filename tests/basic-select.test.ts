@@ -203,5 +203,82 @@ describe('basic select', () => {
     expect(callbackSpy).toHaveBeenCalledTimes(1)
     expect(callbackSpy2).toHaveBeenCalledTimes(2)
   })
+
+  it('allows reshaping the selection array while keeping all bound observers', () => {
+    const state = {
+      key1: 'something',
+      key2: 'something-else'
+    }
+
+    const selectorThatWillBeReshaped = select(
+      state, 
+      [
+        '/key1',
+      ],
+      (currentState) => {
+        return {
+          someValue: currentState.key1,
+        }
+      }
+    )
+
+    const callbackSpy = jest.fn()
+
+    selectorThatWillBeReshaped.observe(callbackSpy)
+
+    mutate(state, (modifiable) => {
+      modifiable.key1 = 'hello on key1'
+    })
+
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+
+
+    mutate(state, (modifiable) => {
+      modifiable.key2 = 'hello on key2'
+    })
+
+    // callback does not get called again because selector is on key1, and we
+    // changed key2
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
+     
+    selectorThatWillBeReshaped.reshape((selectors) => {
+      return [...selectors, [`key2`]]
+    })
+
+    mutate(state, (modifiable) => {
+      modifiable.key2 = 'hello on key2 a second time'
+    })
+
+    // now we are listening to both key1 and key2
+    expect(callbackSpy).toHaveBeenCalledTimes(2)
+    
+
+    
+    mutate(state, (modifiable) => {
+      modifiable.key1 = 'hello on key1 a second time'
+    })
+
+    // now we are listening to both key1 and key2
+    expect(callbackSpy).toHaveBeenCalledTimes(3)
+
+
+    selectorThatWillBeReshaped.reshape((selectors) => {
+      return [[`key2`]]
+    })
+
+    mutate(state, (modifiable) => {
+      modifiable.key2 = 'hello on key2 a trhid time'
+    })
+
+    // now we are listening only on key2
+    expect(callbackSpy).toHaveBeenCalledTimes(4)
+
+    mutate(state, (modifiable) => {
+      modifiable.key1 = 'hello on key1 a trhid time'
+    })
+
+    // now we are listening only on key2
+    expect(callbackSpy).toHaveBeenCalledTimes(4)
+  })
   
 })
