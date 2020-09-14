@@ -362,6 +362,7 @@ export class ProxyMutationObjectHandler<T extends object> {
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
     this.dirtyPaths.add(this)
+    // could "tick" right here and produce the derivates :) :-? 
     let opType: 'add' | 'replace' | 'remove' = 'add'
     if ( target[prop] ) {
       opType = value ? 'replace' : 'remove'

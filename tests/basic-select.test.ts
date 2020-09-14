@@ -280,5 +280,54 @@ describe('basic select', () => {
     // now we are listening only on key2
     expect(callbackSpy).toHaveBeenCalledTimes(4)
   })
+
+  it('can run multiple identical selectors', () => {
+    const state = {
+      key1: 'something',
+    }
+
+    const selector1 = select(
+      state, 
+      [
+        '/key1',
+      ],
+      (currentState) => {
+        return {
+          someValue: currentState.key1,
+        }
+      }
+    )
+
+    //order matters a lot
+    const callback1 = jest.fn()
+    selector1.observe(callback1)
+
+
+    // must be after observe
+    const selector2 = select(
+      state, 
+      [
+        '/key1',
+      ],
+      (currentState) => {
+        return {
+          someValue: currentState.key1,
+        }
+      }
+    )
+
+    const callback2 = jest.fn()
+
+    selector2.observe(callback2)
+
+    mutate(state, (mutable) => {
+      mutable.key1 = 'changed'
+    })
+
+    expect(callback1).toHaveBeenCalledTimes(1)
+    expect(callback2).toHaveBeenCalledTimes(1)
+
+
+  })
   
 })
