@@ -16,12 +16,7 @@ export default {
     },
     {
       file: pkg.module,
-      format: "es", // the preferred format
-    },
-    {
-      file: pkg.browser,
-      format: "iife",
-      name: "PLD",
+      format: "es",
     },
   ],
 };
