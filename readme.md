@@ -1,15 +1,15 @@
 # Proxy Live Document 
 (Name is pending)
 
-An opinionanted, mutable, single store state management library that allows fine granied observers over what changes.
+An opinionated, mutable, single store state management library that allows fine grained observers over what changes.
 
 ## Current status
 
-- alpha verion
+- alpha version
 - api likely to change
 - all apis are well tested
 
-## Instalation
+## Installation
 
 ```
 npm i vladnicula/proxy-live-document#master
@@ -22,7 +22,7 @@ npm i vladnicula/proxy-live-document#master
 
 Any change we want to make should be made with a mutation, just like in the old days.
 
-If you want to modify something in your state, write just the change, without having to wory about immutability, efficient rerendering of the UI or anything like that. 
+If you want to modify something in your state, write just the change, without having to worry about immutability, efficient re-rendering of the UI or anything like that. 
 
 ```tsx
 const state = {}
@@ -84,7 +84,7 @@ mutate(theAppState, (currentState) => {
 
 Observations of changes don't know how to reason about arrays, only objects are supported for now.
 
-If you have arrays in your state, consider changing them to { key: value, key2: value2 } representations. The ui rendering in general - regradless of ui framework used - would benefit greatly by this change.
+If you have arrays in your state, consider changing them to { key: value, key2: value2 } representations. The UI rendering in general - regardless of UI framework used - would benefit greatly by this change.
 
 ## API Overview
 
@@ -94,11 +94,11 @@ If you have arrays in your state, consider changing them to { key: value, key2: 
 mutate<T>(state: T, callback(stateLikeObject: T) => void)
 ```
 
-`mutate` is a function that wrappes the root state into a proxy and keeps track of chagnes happening in it.
+`mutate` is a function that wraps the root state into a proxy and keeps track of changes happening in it.
 
 - The type `<T>` of state will identical to the first paremeter of the `callback`
-- Changes will only be observed if they are done on the `stateLikeObject` or on subobjects accessed from the `stateLikeObject`
-- If an error is trown in the mutate functon, NO CHANGES will be made on the `state` and no observables will be triggered.
+- Changes will only be observed if they are done on the `stateLikeObject` or on sub-objects accessed from the `stateLikeObject`
+- If an error is thrown in the mutate function, NO CHANGES will be made on the `state` and no observable will be triggered.
 
 ### select
 
@@ -140,7 +140,7 @@ mutateFromPatches(state2, patches)
 console.log(state2.value === state1.value) // true
 ```
 
-The combination of mutate and mutateFromPatches, with the help of another library function `inversePatch` can be used to implement history undo and redo, as well as a basic server sincronization and real time collaboration. 
+The combination of `mutate` and `mutateFromPatches`, with the help of another library function `inversePatch` can be used to implement history undo and redo, as well as a basic server synchronization and real time collaboration. 
 
 ## License
 All code contributed to this repository is licensed under the standard MIT license:
