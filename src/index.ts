@@ -1,3 +1,5 @@
+import { ProxyCache } from "./proxy-cache"
+
 type ObjectTree = object
 
 type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
@@ -352,8 +354,24 @@ export class ProxyMutationObjectHandler<T extends object> {
     }
 
     const subEntity = target[prop]
-    if ( typeof subEntity === 'object' && subEntity !== null ) {
-      return this.proxyfyAccess(subEntity as unknown as object, [...this.pathArray, prop] as string[])
+    if (typeof subEntity === 'object' && subEntity !== null) {
+      // There is no way of knowing if an object is a Proxy or not.
+      // In order for us to avoid creating Proxies in Proxies, we are
+      // caching the already created ones and if in the future we
+      // need them, we are just getting them from the cache
+      if (ProxyCache.exists(subEntity as unknown as object)) {
+        return subEntity
+      }
+
+      const entityProxy = this.proxyfyAccess(
+        subEntity as unknown as object,
+        [...this.pathArray, prop] as string[]
+      )
+
+      if (!ProxyCache.exists(entityProxy as unknown as object)) {
+        ProxyCache.cache(entityProxy)
+      }
+      return entityProxy
     }
     return subEntity
   }
