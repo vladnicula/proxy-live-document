@@ -1,11 +1,11 @@
-class ProxyCache {
-  private proxies = new WeakSet()
+class ProxyCache<T extends object> {
+  private proxies = new WeakSet<T>()
 
-  cache(proxie: object) {
+  cache(proxie: T) {
     this.proxies.add(proxie)
   }
 
-  exists(proxie: object) {
+  exists(proxie: T) {
     return this.proxies.has(proxie)
   }
 }

@@ -1,4 +1,4 @@
-import { ProxyCache } from './proxy-cache'
+import { ProxyCache } from "./proxy-cache"
 
 type ObjectTree = object
 
@@ -324,13 +324,13 @@ export class MutationsManager {
       }, [])
       .sort((a, b) => (a.patchNumber || 0) - (b.patchNumber || 0))
 
-    // const combinedPatches = combinedJSONPatches(patches)
-    selectorsManager.processPatches(target, patches)
+    const combinedPatches = combinedJSONPatches(patches)
+    selectorsManager.processPatches(target, combinedPatches)
 
     this.mutationMaps.delete(target)
     this.mutationDirtyPaths.delete(target)
 
-    return patches
+    return combinedPatches
   }
 
   mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown) {
