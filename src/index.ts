@@ -1,3 +1,5 @@
+import { ProxyCache } from './proxy-cache'
+
 type ObjectTree = object
 
 type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
@@ -5,48 +7,55 @@ type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 export const Patcher = Symbol('Patcher')
 const WatcherProxy = Symbol('WatcherProxy')
 const TargetRef = Symbol('TargetRef')
+// This is used just for sorting patches; can't use timestamps, as they're too browser-dependent
+// let currentPatchNumber = 0
 
 type JSONPatch = {
-  op: 'replace' | 'remove' | 'add',
-  path: string,
-  value: unknown,
+  op: 'replace' | 'remove' | 'add'
+  path: string
+  value: unknown
+  patchNumber?: number
   old?: unknown
 }
 
 export type JSONPatchEnhanced = JSONPatch & {
-  pathArray: string[],
+  pathArray: string[]
 }
 
 /**
  * Was used to apply changes in the mutation function after all the operatoins finished.
  * I changed that to allow writing immediatly in the mutation. Now, when a class instance
  * makes a change somewhere deep in the tree, the change happens immedtialy. I keep track
- * of it in the json patch operations and can reason about it later on. 
- * 
+ * of it in the json patch operations and can reason about it later on.
+ *
  * This will come in handy for real time colaboraiton when changes from the server will be
- * captured and handled by clients. 
+ * captured and handled by clients.
  */
-export const applyInternalMutation = <T extends ObjectTree>(mutations: JSONPatchEnhanced[], stateTree: T) => {
-  mutations.forEach(mutation => {
+export const applyInternalMutation = <T extends ObjectTree>(
+  mutations: JSONPatchEnhanced[],
+  stateTree: T
+) => {
+  mutations.forEach((mutation) => {
     applyJSONPatchOperation(mutation, stateTree)
   })
 }
 
 export const combinedJSONPatches = (operations: JSONPatchEnhanced[]) => {
   const skipMap = new Map()
-  for ( let i = 0; i < operations.length; i += 1 ) {
-    const compareOp = operations[i]
-    if ( skipMap.has(compareOp) ) {
-      continue;
+  for (let i = 0; i < operations.length; i += 1) {
+    const comparedOp = operations[i]
+    if (skipMap.has(comparedOp)) {
+      continue
     }
-    for ( let j = 0; j < operations.length; j += 1 ) {
+    for (let j = 0; j < operations.length; j += 1) {
       const compareWithOp = operations[j]
-      if ( compareOp === compareWithOp || skipMap.has(compareWithOp) ) {
-        continue;
+      if (comparedOp === compareWithOp || skipMap.has(compareWithOp)) {
+        continue
       }
 
-      if ( compareWithOp.path.includes(compareOp.path) 
-        && combineIntersectedPathOperations(compareOp, compareWithOp)
+      if (
+        compareWithOp.path.includes(comparedOp.path) &&
+        combineIntersectedPathOperations(comparedOp, compareWithOp, i < j)
       ) {
         skipMap.set(compareWithOp, true)
       }
@@ -59,62 +68,82 @@ export const combinedJSONPatches = (operations: JSONPatchEnhanced[]) => {
 /**
  * Takes a "parent" operation and a "child" operation based on their path
  * and changes the parent operation to contain the child one if possible.
- * 
+ *
  * Used to merge togather multiple operations on the same subtree, at different
- * levels. 
- * 
+ * levels.
+ *
  * This is needed because the mutations could sometimes write or remove the same
  * key at different points in the execution, and we only care about the final result
  * at the end of the transactionlike operation.
- * 
- * The return statement is a boolean. If merge was possible, the destinatoin of the 
- * merge, the first param of this function, is already mutated to contain the 
+ *
+ * The return statement is a boolean. If merge was possible, the destinatoin of the
+ * merge, the first param of this function, is already mutated to contain the
  * new content.
- * 
+ *
  * @param into JSON Patch op that is a parent of the from op
  * @param from JSON Patch op that is a child of the into op
- * 
+ * @param intoBeforeFrom boolean that tells the order of the operations
+ *
  * @returns true if the merge was possible, and false otherwise
  */
-const combineIntersectedPathOperations = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) => {
+const combineIntersectedPathOperations = (
+  into: JSONPatchEnhanced,
+  from: JSONPatchEnhanced,
+  intoBeforeFrom: boolean
+) => {
   const pathTarget = into.path
   const pathFrom = from.path
 
-  if ( !pathFrom.includes(pathTarget) ) {
+  if (!pathFrom.includes(pathTarget)) {
     return false
   }
 
-  switch ( into.op ) {
-    case "remove":
-      return true
-    case "add":
+  switch (into.op) {
+    case 'remove':
+      return !(pathTarget === pathFrom && intoBeforeFrom)
+    case 'add':
       mergeWithParentAdd(into, from)
       return true
-    case "replace":
+    case 'replace':
       return true
     default:
       return false
   }
 }
 
-const mergeWithParentAdd = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) => {
-  const mergeIntoValue = into.value as Record<string, unknown>
+const mergeWithParentAdd = (
+  into: JSONPatchEnhanced,
+  from: JSONPatchEnhanced
+) => {
+  const mergeIntoValue = into.value as Record<string, unknown> | number | string
   const subPath = from.path.replace(into.path, '')
-  const subPathArray = subPath.split('/').filter(part => !!part)
+
+  if (
+    subPath === '' &&
+    (!isNaN(into.value as number) || typeof into.value === 'string')
+  ) {
+    into.value = from.value
+    return
+  }
+
+  const subPathArray = subPath.split('/').filter((part) => !!part)
   applyJSONPatchOperation(
     {
       ...from,
       path: subPath,
-      pathArray: subPathArray
+      pathArray: subPathArray,
     },
-    mergeIntoValue
+    mergeIntoValue as Record<string, unknown>
   )
 }
 
-export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
+export const applyJSONPatchOperation = <T extends ObjectTree>(
+  operation: JSONPatchEnhanced,
+  stateTree: T
+) => {
   const { op, pathArray, value } = operation
   const pathArrayLen = pathArray.length
-  if ( !pathArrayLen ) {
+  if (!pathArrayLen) {
     return
   }
 
@@ -122,38 +151,51 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPat
   let itPathPart
   let lastPatcher: {
     entity: Record<string, unknown>
-    pathArray: string []
-  } | null = currentStateTree.hasOwnProperty(Patcher) ? {
-    entity: currentStateTree,
-    pathArray: [...pathArray]
-  } : null
+    pathArray: string[]
+  } | null = currentStateTree.hasOwnProperty(Patcher)
+    ? {
+        entity: currentStateTree,
+        pathArray: [...pathArray],
+      }
+    : null
 
-  for ( let i = 0; i < pathArrayLen - 1; i += 1 ) {
+  for (let i = 0; i < pathArrayLen - 1; i += 1) {
     itPathPart = pathArray[i]
-    if ( !currentStateTree.hasOwnProperty(itPathPart) ) {
-      throw new Error(`applyJSONPatchOperation cannot walk json patch path ${pathArray.join('/')}. Cannot access path ${[...pathArray].slice(0, i).join('/')}.`)
+    if (!currentStateTree.hasOwnProperty(itPathPart)) {
+      throw new Error(
+        `applyJSONPatchOperation cannot walk json patch path ${pathArray.join(
+          '/'
+        )}. Cannot access path ${[...pathArray].slice(0, i).join('/')}.`
+      )
     }
-    currentStateTree = (currentStateTree as Record<string, unknown>)[itPathPart] as Record<string, unknown>
-    if ( currentStateTree.hasOwnProperty(Patcher) ) {
+    currentStateTree = (currentStateTree as Record<string, unknown>)[
+      itPathPart
+    ] as Record<string, unknown>
+    if (currentStateTree.hasOwnProperty(Patcher)) {
       lastPatcher = {
         entity: currentStateTree,
-        pathArray: [...pathArray].slice(i + 1) 
+        pathArray: [...pathArray].slice(i + 1),
       }
     }
-    
   }
 
   const lastPathPart = pathArray[pathArrayLen - 1]
 
-  if ( lastPatcher && `applyPatch` in lastPatcher.entity && typeof  lastPatcher.entity.applyPatch === 'function' ) {
-    const subPathArray = operation.pathArray.filter((pathPart) => lastPatcher?.pathArray.indexOf(pathPart) !== -1)
-    const subPathString = subPathArray.join('/');
+  if (
+    lastPatcher &&
+    `applyPatch` in lastPatcher.entity &&
+    typeof lastPatcher.entity.applyPatch === 'function'
+  ) {
+    const subPathArray = operation.pathArray.filter(
+      (pathPart) => lastPatcher?.pathArray.indexOf(pathPart) !== -1
+    )
+    const subPathString = subPathArray.join('/')
 
-    (lastPatcher.entity.applyPatch as (patchOp: JSONPatchEnhanced) => unknown)(
+    ;(lastPatcher.entity.applyPatch as (patchOp: JSONPatchEnhanced) => unknown)(
       {
         ...operation,
         path: subPathString,
-        pathArray: subPathArray
+        pathArray: subPathArray,
       }
     )
     return
@@ -162,130 +204,156 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPat
   switch (op) {
     case 'add':
     case 'replace':
-      Object.assign(currentStateTree, {[lastPathPart]: value})
+      Object.assign(currentStateTree, { [lastPathPart]: value })
       break
     case 'remove':
       delete currentStateTree[lastPathPart]
       break
   }
-
 }
 
-export const mutateFromPatches =  <T extends ObjectTree>(
-  stateTree: T, 
-  patches: JSONPatchEnhanced[]
+export const mutateFromPatches = <T extends ObjectTree>(
+  stateTree: T,
+  patches?: JSONPatchEnhanced[]
 ) => {
+  if (!patches) {
+    return
+  }
+
   mutate(stateTree, (mutatable) => {
-    for ( let i = 0; i < patches.length; i += 1 ) {
+    for (let i = 0; i < patches.length; i += 1) {
       applyJSONPatchOperation(patches[i], mutatable)
     }
   })
 }
 
 export class MutationsManager {
-
   mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
-  mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>> = new Map()
+  mutationDirtyPaths: Map<
+    ObjectTree,
+    Set<ProxyMutationObjectHandler<ObjectTree>>
+  > = new Map()
 
-  private getSubProxy = <T extends ObjectTree>(target: ObjectTree, subTarget: T, currentPathArray?: string[]): T => {
+  private getSubProxy = <T extends ObjectTree>(
+    target: ObjectTree,
+    subTarget: T,
+    currentPathArray?: string[]
+  ): T => {
     const mutationProxies = this.mutationMaps.get(target)
     let proxy = mutationProxies?.get(subTarget) as T | undefined
-    if ( !proxy ) {
-      proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
-        target: subTarget,
-        dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
-        pathArray: currentPathArray,
-        proxyfyAccess:  <T extends ObjectTree>(someOtherSubTarget: T, someOtherPathArray?: string[]) => {
-          return this.getSubProxy(target, someOtherSubTarget, someOtherPathArray)
-        }
-      })) as T
+    if (!proxy) {
+      proxy = new Proxy(
+        subTarget,
+        new ProxyMutationObjectHandler({
+          target: subTarget,
+          dirtyPaths: this.mutationDirtyPaths.get(target) as Set<
+            ProxyMutationObjectHandler<object>
+          >,
+          pathArray: currentPathArray,
+          proxyfyAccess: <T extends ObjectTree>(
+            someOtherSubTarget: T,
+            someOtherPathArray?: string[]
+          ) => {
+            return this.getSubProxy(
+              target,
+              someOtherSubTarget,
+              someOtherPathArray
+            )
+          },
+        }) as ProxyHandler<object>
+      ) as T
       mutationProxies?.set(subTarget, proxy)
     }
 
     return proxy
   }
 
-  startMutation (target: ObjectTree) {
+  startMutation(target: ObjectTree) {
     this.mutationMaps.set(target, new WeakMap() as ProxyMapType<ObjectTree>)
-    this.mutationDirtyPaths.set(target, new Set<ProxyMutationObjectHandler<ObjectTree>>())
-
-    const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
+    this.mutationDirtyPaths.set(
       target,
-      dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
-      proxyfyAccess: <T extends ObjectTree>(subTarget: T, pathArray?: string[]) => {
-        return this.getSubProxy(target, subTarget, pathArray)
-      }
-    }))
+      new Set<ProxyMutationObjectHandler<ObjectTree>>()
+    )
+
+    const rootProxy = new Proxy(
+      target,
+      new ProxyMutationObjectHandler({
+        target,
+        dirtyPaths: this.mutationDirtyPaths.get(target) as Set<
+          ProxyMutationObjectHandler<object>
+        >,
+        proxyfyAccess: <T extends ObjectTree>(
+          subTarget: T,
+          pathArray?: string[]
+        ) => {
+          return this.getSubProxy(target, subTarget, pathArray)
+        },
+      })
+    )
+
     this.mutationMaps.get(target)?.set(target, rootProxy)
   }
 
-  hasRoot (rootA: any) {
+  hasRoot(rootA: any) {
     return this.mutationMaps.has(rootA)
   }
 
-  commit (target: ObjectTree) {
-    const dirtyPaths = this.mutationDirtyPaths.get(target) 
-    if ( !dirtyPaths ) {
+  commit(target: ObjectTree) {
+    const dirtyPaths = this.mutationDirtyPaths.get(target)
+    if (!dirtyPaths) {
       return []
     }
-    const patch = Array.from(dirtyPaths).reduce(
-      (
-        acc: JSONPatchEnhanced[],
-        value,
-      ) => {
+
+    const patches = Array.from(dirtyPaths)
+      .reduce((acc: JSONPatchEnhanced[], value) => {
         const { pathArray: path, ops } = value
         const sourcePath = path.length ? `/${path.join('/')}` : ''
-        for ( let i = 0; i < ops.length; i += 1 ) {
-          const op = ops[i] 
+        for (let i = 0; i < ops.length; i += 1) {
+          const op = ops[i]
           const { old, value } = op
-          if ( old === value ) {
+          if (old === value) {
             continue
           }
           acc.push({
             ...op,
             path: `${sourcePath}/${op.path}`,
-            pathArray: [...path, op.path]
+            pathArray: [...path, op.path],
           })
         }
         return acc
-      }, 
-      []
-    )
-  
-    const combinedPatches = combinedJSONPatches(patch)
-    selectorsManager.processPatches(target, combinedPatches)
-    
+      }, [])
+      .sort((a, b) => (a.patchNumber || 0) - (b.patchNumber || 0))
+
+    // const combinedPatches = combinedJSONPatches(patches)
+    selectorsManager.processPatches(target, patches)
+
     this.mutationMaps.delete(target)
     this.mutationDirtyPaths.delete(target)
 
-    return combinedPatches
+    return patches
   }
 
-  mutate <T extends ObjectTree>(
-    target: T,
-    callback: (mutable: T) => unknown
-  ) {
-
+  mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown) {
     const isOuterMostTransactionForThisObject = !this.hasRoot(target)
-    if ( isOuterMostTransactionForThisObject ) {
+    if (isOuterMostTransactionForThisObject) {
       this.startMutation(target)
     }
 
     const proxyWrapper = this.mutationMaps.get(target)?.get(target) as T
-    if ( !proxyWrapper ) {
+    if (!proxyWrapper) {
       return
     }
 
     callback(proxyWrapper)
 
     // only return the patches on the top most level
-    if ( isOuterMostTransactionForThisObject ) {
+    if (isOuterMostTransactionForThisObject) {
       return this.commit(target)
     }
 
     return []
   }
-} 
+}
 
 const mutationsManager = new MutationsManager()
 
@@ -297,19 +365,18 @@ export const mutate = <T extends ObjectTree>(
 }
 
 /**
- * When working with domain objects, it's probably best to have a 
+ * When working with domain objects, it's probably best to have a
  * method that serializes them so we can 'snapshot' how they origianlly
- * looked like before a changed appened. Without this, object spreads 
+ * looked like before a changed appened. Without this, object spreads
  * on those object might not create the best results.
- * 
- * For the first phase of this, I'm only looking at plain objects in 
+ *
+ * For the first phase of this, I'm only looking at plain objects in
  * the initial algorithm. In the second phase this might come in handy.
  */
 export abstract class IObservableDomain {
   abstract toJSON: () => Record<string, unknown>
   abstract fromJSON: (input: Record<string, unknown>) => void
 }
-
 
 export class ProxyMutationObjectHandler<T extends object> {
   readonly pathArray: string[]
@@ -319,52 +386,70 @@ export class ProxyMutationObjectHandler<T extends object> {
   readonly ops: JSONPatch[] = []
   readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
 
-  readonly proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
+  readonly proxyfyAccess: <T extends ObjectTree>(
+    target: T,
+    pathArray?: string[]
+  ) => T
 
-  constructor (params: {
-    target: T, 
-    pathArray?: string []
-    dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>,
-    proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
+  constructor(params: {
+    target: T
+    pathArray?: string[]
+    dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
+    proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[]) => T
   }) {
-    const { target, pathArray = [], proxyfyAccess, dirtyPaths} = params
+    const { target, pathArray = [], proxyfyAccess, dirtyPaths } = params
     this.pathArray = pathArray
     this.targetRef = target
     this.proxyfyAccess = proxyfyAccess
     this.dirtyPaths = dirtyPaths
   }
 
-  get <K extends keyof T>(target: T, prop: K) {
-    if ( typeof prop === 'symbol' && prop === TargetRef ) {
+  get<K extends keyof T>(target: T, prop: K) {
+    if (typeof prop === 'symbol' && prop === TargetRef) {
       return this.targetRef
     }
 
-    if ( typeof prop === 'symbol' && prop === WatcherProxy ) {
+    if (typeof prop === 'symbol' && prop === WatcherProxy) {
       return true
     }
 
-    if (typeof prop === "symbol" || prop === 'hasOwnProperty') {
-      return Reflect.get(target, prop);
+    if (typeof prop === 'symbol' || prop === 'hasOwnProperty') {
+      return Reflect.get(target, prop)
     }
 
-    if ( typeof prop === 'string' && this.deleted.hasOwnProperty(prop) ) {
+    if (typeof prop === 'string' && this.deleted.hasOwnProperty(prop)) {
       return undefined
     }
 
     const subEntity = target[prop]
-    if ( typeof subEntity === 'object' && subEntity !== null ) {
-      return this.proxyfyAccess(subEntity as unknown as object, [...this.pathArray, prop] as string[])
+    if (typeof subEntity === 'object' && subEntity !== null) {
+      // There is no way of knowing if an object is a Proxy or not.
+      // In order for us to avoid creating Proxies in Proxies, we are
+      // caching the already created ones and if in the future we
+      // need them, we are just getting them from the cache
+      if (ProxyCache.exists(subEntity as unknown as object)) {
+        return subEntity
+      }
+
+      const entityProxy = this.proxyfyAccess(
+        subEntity as unknown as object,
+        [...this.pathArray, prop] as string[]
+      )
+
+      if (!ProxyCache.exists(entityProxy as unknown as object)) {
+        ProxyCache.cache(entityProxy)
+      }
+      return entityProxy
     }
     return subEntity
   }
 
-  set <K extends keyof T>(target: T, prop: K, value: T[K]) {
-    // console.log('set handler called', [prop, value], this.path)
+  set<K extends keyof T>(target: T, prop: K, value: T[K]) {
     // TODO consider moving this from a global into a normal var
     this.dirtyPaths.add(this)
-    // could "tick" right here and produce the derivates :) :-? 
+    // could "tick" right here and produce the derivates :) :-?
     let opType: 'add' | 'replace' | 'remove' = 'add'
-    if ( target[prop] ) {
+    if (target[prop]) {
       opType = value ? 'replace' : 'remove'
     }
 
@@ -372,32 +457,32 @@ export class ProxyMutationObjectHandler<T extends object> {
      * We can check if this is the first time we are setting this prop
      * in this mutation, by looking to see if we have an original value
      * already. If we don't, the it's the first time we write.
-     * 
+     *
      * We also only care about value that exist in the target. If we are
      * setting a new value, we don't have an original, so we don't add
      * the key at all in the original cache. This way, if target did not
      * have an original value, we will get hasOwnProperty(prop) === false
      * with this if, instead of true, but having the value be undefined.
-     * 
+     *
      * It's debatable if having hasOwnProp is better here compared to
      * the in operator: https://masteringjs.io/tutorials/fundamentals/hasownproperty
      */
-    if ( !this.original.hasOwnProperty(prop) && target.hasOwnProperty(prop) ) {
+    if (!this.original.hasOwnProperty(prop) && target.hasOwnProperty(prop)) {
       this.original[prop] = target[prop]
     }
 
     /**
      * JSON Patch values should not have reference to mutable
      * objects that are set. If we set them as references then
-     * later modifications will appear in them. 
+     * later modifications will appear in them.
      */
     let opValue = value
-    if ( typeof value === 'object' && value !== null ) {
+    if (typeof value === 'object' && value !== null) {
       const objectValue = value as unknown as object
-      if ( objectValue.hasOwnProperty(WatcherProxy) ) {
-        opValue = (objectValue as unknown as { [TargetRef]: T[K] })[TargetRef] 
+      if (objectValue.hasOwnProperty(WatcherProxy)) {
+        opValue = (objectValue as unknown as { [TargetRef]: T[K] })[TargetRef]
       } else {
-        opValue = {...value}
+        opValue = { ...value }
       }
     }
 
@@ -407,15 +492,16 @@ export class ProxyMutationObjectHandler<T extends object> {
      * mutation.
      */
     let opOriginal = this.original[prop]
-    if ( typeof opOriginal === 'object' && opOriginal !== null ) {
-      opOriginal = {...opOriginal}
+    if (typeof opOriginal === 'object' && opOriginal !== null) {
+      opOriginal = { ...opOriginal }
     }
-    
+
     this.ops.push({
       op: opType,
       path: `${prop}`,
       old: opOriginal,
       value: opValue,
+      // patchNumber: currentPatchNumber++,
     })
 
     return Reflect.set(target, prop, value)
@@ -424,26 +510,27 @@ export class ProxyMutationObjectHandler<T extends object> {
   /**
    * Proxy trap for delete keyword
    */
-  deleteProperty <K extends keyof T>(target: T, prop: K) {
+  deleteProperty<K extends keyof T>(target: T, prop: K) {
     if (prop in target) {
-      if ( typeof prop === 'string' ) {
+      if (typeof prop === 'string') {
         this.dirtyPaths.add(this)
         this.deleted[prop] = true
-        
-        if ( !this.original.hasOwnProperty(prop) ) {
+
+        if (!this.original.hasOwnProperty(prop)) {
           this.original[prop] = target[prop]
         }
 
         let opOriginal = this.original[prop]
-        if ( typeof opOriginal === 'object' && opOriginal !== null ) {
-          opOriginal = {...opOriginal}
+        if (typeof opOriginal === 'object' && opOriginal !== null) {
+          opOriginal = { ...opOriginal }
         }
 
         this.ops.push({
           op: 'remove',
           path: `${prop}`,
           old: opOriginal,
-          value: undefined
+          value: undefined,
+          // patchNumber: currentPatchNumber++,
         })
       }
     }
@@ -454,14 +541,14 @@ export class ProxyMutationObjectHandler<T extends object> {
   /**
    * Proxy trap for Object.getOwnPropertyDescriptor()
    */
-  getOwnPropertyDescriptor <K extends keyof T>(target: T, prop: K) {
-    if ( typeof prop === 'string' && this.deleted[prop] ) {
+  getOwnPropertyDescriptor<K extends keyof T>(target: T, prop: K) {
+    if (typeof prop === 'string' && this.deleted[prop]) {
       return undefined
     }
-    if ( prop === WatcherProxy ) {
+    if (prop === WatcherProxy) {
       return {
         configurable: true,
-        value: true
+        value: true,
       }
     }
     return Reflect.getOwnPropertyDescriptor(target, prop)
@@ -470,30 +557,29 @@ export class ProxyMutationObjectHandler<T extends object> {
   /**
    * Proxy trap for when looking at what keys we have
    */
-  ownKeys (target: T) {
+  ownKeys(target: T) {
     return Reflect.ownKeys(target)
   }
 
   /**
    * Proxy trap for when looking at what keys we have
    */
-  has <K extends keyof T>(target: T, key: K) {
+  has<K extends keyof T>(target: T, key: K) {
     return Reflect.has(target, key)
   }
 }
 
-export const pathMatchesSource = (source: string[], target: string[] ) => {
-  if ( source.indexOf('**') === -1 && source.length !== target.length ) {
+export const pathMatchesSource = (source: string[], target: string[]) => {
+  if (source.indexOf('**') === -1 && source.length !== target.length) {
     return false
   }
 
-  for ( let i = 0; i < source.length; i += 1 ) {
-
+  for (let i = 0; i < source.length; i += 1) {
     /**
      * If this level of the path is static and is matched we
      * continue to the next path
      */
-    if ( source[i] === target[i] ) {
+    if (source[i] === target[i]) {
       continue
     }
 
@@ -501,7 +587,7 @@ export const pathMatchesSource = (source: string[], target: string[] ) => {
      * if we match anything and still have something to match
      * we continue to look at the next entities
      */
-    if ( source[i] === '*' && target[i] ) {
+    if (source[i] === '*' && target[i]) {
       continue
     }
 
@@ -510,7 +596,7 @@ export const pathMatchesSource = (source: string[], target: string[] ) => {
      * it means we have a subtree there, we can match it and not
      * look inside it anymore.
      */
-    if ( i + 1 === source.length && source[i] === '**' && target[i] ) {
+    if (i + 1 === source.length && source[i] === '**' && target[i]) {
       return true
     }
 
@@ -518,7 +604,7 @@ export const pathMatchesSource = (source: string[], target: string[] ) => {
      * When source and target are not equal, and all special cases of * or **
      * are treated before this line of code, we basically say it's a do go
      */
-    if ( target[i] !== source[i] ) {
+    if (target[i] !== source[i]) {
       return false
     }
   }
@@ -526,10 +612,10 @@ export const pathMatchesSource = (source: string[], target: string[] ) => {
   return true
 }
 
-const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
-  for ( let i = 0; i < source.length; i += 1 ) {
-    for ( let j = 0; j < target.length; j += 1 ) {
-      if ( pathMatchesSource(source[i], target[j]) ) {
+const pathsMatchAnySources = (source: string[][], target: string[][]) => {
+  for (let i = 0; i < source.length; i += 1) {
+    for (let j = 0; j < target.length; j += 1) {
+      if (pathMatchesSource(source[i], target[j])) {
         return target[j]
       }
     }
@@ -538,41 +624,49 @@ const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
   return false
 }
 
-class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>> {
+class StateTreeSelector<
+  T extends ObjectTree,
+  MP extends SeletorMappingBase<T>
+> {
   private selectorSet: Array<string[]>
   private mappingFn: MP
   private lastSelectorValue: null | any = null
+  selectorName = ''
 
   private callbackSet: Set<(input: ReturnType<MP>) => unknown> = new Set()
   private disposeMethod: Function
 
-  constructor (
+  constructor(
     selectorSet: string[],
     mappingFn: MP,
-    disposeMethod: Function
+    disposeMethod: Function,
+    selectorName: string
   ) {
     this.mappingFn = mappingFn
     this.disposeMethod = disposeMethod
     this.selectorSet = selectorSet.map((stringPath) => {
-      if (stringPath.startsWith('/') ) {
+      if (stringPath.startsWith('/')) {
         return stringPath.substr(1).split('/')
       }
       return stringPath.split('/')
     })
+    if (process.env.NODE_ENV === 'development') {
+      this.selectorName = selectorName
+    }
   }
 
-  reshape ( callback: (selectorSet: string[][]) => string[][] ) {
+  reshape(callback: (selectorSet: string[][]) => string[][]) {
     this.selectorSet = callback(this.selectorSet)
   }
 
-  match ( pathArrays:string[][] ) {
+  match(pathArrays: string[][]) {
     const selectorSet = this.selectorSet
     return pathsMatchAnySources(selectorSet, pathArrays)
   }
 
-  run (stateTree: T, pathsArray: JSONPatchEnhanced[]) {
+  run(stateTree: T, pathsArray: JSONPatchEnhanced[]) {
     const mappedValue = this.mappingFn(stateTree, pathsArray) as ReturnType<MP>
-    if ( this.lastSelectorValue !== mappedValue ) {
+    if (this.lastSelectorValue !== mappedValue) {
       this.lastSelectorValue = mappedValue
       this.callbackSet.forEach((callback) => {
         callback(mappedValue)
@@ -580,9 +674,11 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
     }
   }
 
-  observe (callback: (input: ReturnType<MP>) => unknown) {
-    if ( this.callbackSet.has(callback) ) {
-      throw new Error(`this callback was already registered. If you run things twice, create two different callbacks`)
+  observe(callback: (input: ReturnType<MP>) => unknown) {
+    if (this.callbackSet.has(callback)) {
+      throw new Error(
+        `this callback was already registered. If you run things twice, create two different callbacks`
+      )
     }
     this.callbackSet.add(callback)
     return () => {
@@ -590,23 +686,22 @@ class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>>
     }
   }
 
-  dispose () {
+  dispose() {
     this.disposeMethod()
   }
 }
 
 class StateTreeSelectorsManager<
-  T extends ObjectTree, 
+  T extends ObjectTree,
   K extends StateTreeSelector<T, SeletorMappingBase<T>>
 > {
-  
-  selectorMap = new WeakMap<T, {selectors: K[]}>()
+  selectorMap = new WeakMap<T, { selectors: K[] }>()
 
-  registerSelector (stateTree: T, selector: K) {
+  registerSelector(stateTree: T, selector: K) {
     let selectorForThisTree = this.selectorMap.get(stateTree)
-    if ( !selectorForThisTree ) {
+    if (!selectorForThisTree) {
       selectorForThisTree = {
-        selectors: [] as K[]
+        selectors: [] as K[],
       }
       this.selectorMap.set(stateTree, selectorForThisTree)
     }
@@ -614,32 +709,65 @@ class StateTreeSelectorsManager<
     selectorForThisTree.selectors.push(selector)
   }
 
-  removeSelector (stateTree: T, selector: K ) {
+  removeSelector(stateTree: T, selector: K) {
     const selectorForThisTree = this.selectorMap.get(stateTree)
-    if ( !selectorForThisTree ) {
+    if (!selectorForThisTree) {
       return
     }
 
     const pos = selectorForThisTree.selectors.indexOf(selector)
-    if ( pos !== -1 ) {
+    if (pos !== -1) {
       selectorForThisTree.selectors = [
         ...selectorForThisTree.selectors.slice(0, pos),
-        ...selectorForThisTree.selectors.slice(pos + 1)
+        ...selectorForThisTree.selectors.slice(pos + 1),
       ]
     }
   }
 
-  processPatches(stateTree:T, combinedPatches: JSONPatchEnhanced[]) {
+  processPatches(stateTree: T, combinedPatches: JSONPatchEnhanced[]) {
     const selectors = this.selectorMap.get(stateTree)
-    if ( !selectors || !selectors.selectors || selectors.selectors.length === 0 ) {
+    if (
+      !selectors ||
+      !selectors.selectors ||
+      selectors.selectors.length === 0
+    ) {
       return
     }
 
+    // @ts-ignore, set window.debug in console to true for these logs
+    // could also improve this by moving it somewhere else, as it's a bit spammy here
+    if (process.env.NODE_ENV === 'development' && window.debug) {
+      const selectorMapping = selectors?.selectors.reduce(
+        (acc: Record<string, number>, selector) => {
+          if (!acc[selector.selectorName]) {
+            acc[selector.selectorName] = 1
+            return acc
+          }
+          acc[selector.selectorName] += 1
+          return acc
+        },
+        {}
+      )
+      // console.log(Object.keys(selectorMapping).length, selectors.selectors.length)
+      // eslint-disable-next-line no-console
+      console.log(
+        Object.keys(selectorMapping || {}).reduce(
+          (acc: Record<string, number>, selectorName) => {
+            if (selectorMapping[selectorName] > 1) {
+              acc[selectorName] = selectorMapping[selectorName]
+            }
+            return acc
+          },
+          {}
+        )
+      )
+    }
+
     const pathArrays = combinedPatches.map((patch) => patch.pathArray)
-    for ( let i = 0; i < selectors.selectors.length; i += 1 ) {
+    for (let i = 0; i < selectors.selectors.length; i += 1) {
       const itSelector = selectors.selectors[i]
       const matchedPath = itSelector.match(pathArrays)
-      if ( matchedPath ) {
+      if (matchedPath) {
         itSelector.run(stateTree, combinedPatches)
       }
     }
@@ -650,29 +778,40 @@ const selectorsManager = new StateTreeSelectorsManager()
 type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
 export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
-  stateTree: T, 
+  stateTree: T,
   selectors: string[],
-  mappingFn: MP
+  mappingFn: MP,
+  selectorName: string
 ) => {
-  const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T, StateTreeSelector<T, MP>>)
-  const selector = new StateTreeSelector<T, MP>(selectors, mappingFn, () => {
-    castSelectorManager.removeSelector(stateTree, selector)
-  });
+  const castSelectorManager =
+    selectorsManager as unknown as StateTreeSelectorsManager<
+      T,
+      StateTreeSelector<T, MP>
+    >
+  const selector = new StateTreeSelector<T, MP>(
+    selectors,
+    mappingFn,
+    () => {
+      castSelectorManager.removeSelector(stateTree, selector)
+    },
+    selectorName
+  )
   castSelectorManager.registerSelector(stateTree, selector)
   return selector
 }
 
 export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
-  const { path, pathArray, op, value, old} = patch
+  const { path, pathArray, op, value, old, /* patchNumber */ } = patch
 
-  switch ( op ) {
+  switch (op) {
     case 'add':
       return {
         op: 'remove',
         value: old,
         old: value,
         pathArray,
-        path
+        path,
+        // patchNumber,
       }
     case 'remove':
       return {
@@ -680,7 +819,8 @@ export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
         value: old,
         old: value,
         pathArray,
-        path
+        path,
+        // patchNumber,
       }
     case 'replace':
       return {
@@ -688,7 +828,8 @@ export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
         value: old,
         old: value,
         pathArray,
-        path
+        path,
+        // patchNumber,
       }
   }
 }

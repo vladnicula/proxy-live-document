@@ -143,7 +143,7 @@ describe('main', () => {
         }
       })
     })
-  
+
     expect(changes).toEqual([
       {
         op: 'replace',
