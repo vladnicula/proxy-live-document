@@ -5,6 +5,7 @@ declare type JSONPatch = {
     op: 'replace' | 'remove' | 'add';
     path: string;
     value: unknown;
+    patchNumber?: number;
     old?: unknown;
 };
 export declare type JSONPatchEnhanced = JSONPatch & {
@@ -22,7 +23,7 @@ export declare type JSONPatchEnhanced = JSONPatch & {
 export declare const applyInternalMutation: <T extends object>(mutations: JSONPatchEnhanced[], stateTree: T) => void;
 export declare const combinedJSONPatches: (operations: JSONPatchEnhanced[]) => JSONPatchEnhanced[];
 export declare const applyJSONPatchOperation: <T extends object>(operation: JSONPatchEnhanced, stateTree: T) => void;
-export declare const mutateFromPatches: <T extends object>(stateTree: T, patches: JSONPatchEnhanced[]) => void;
+export declare const mutateFromPatches: <T extends object>(stateTree: T, patches?: JSONPatchEnhanced[] | undefined) => void;
 export declare class MutationsManager {
     mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>>;
     mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>>;
@@ -84,9 +85,10 @@ declare class StateTreeSelector<T extends ObjectTree, MP extends SeletorMappingB
     private selectorSet;
     private mappingFn;
     private lastSelectorValue;
+    selectorName: string;
     private callbackSet;
     private disposeMethod;
-    constructor(selectorSet: string[], mappingFn: MP, disposeMethod: Function);
+    constructor(selectorSet: string[], mappingFn: MP, disposeMethod: Function, selectorName: string);
     reshape(callback: (selectorSet: string[][]) => string[][]): void;
     match(pathArrays: string[][]): false | string[];
     run(stateTree: T, pathsArray: JSONPatchEnhanced[]): void;
@@ -94,6 +96,6 @@ declare class StateTreeSelector<T extends ObjectTree, MP extends SeletorMappingB
     dispose(): void;
 }
 declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
-export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => StateTreeSelector<T, MP>;
+export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP, selectorName: string) => StateTreeSelector<T, MP>;
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
 export {};
