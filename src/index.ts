@@ -88,6 +88,10 @@ const combineIntersectedPathOperations = (into: JSONPatchEnhanced, from: JSONPat
 
   switch ( into.op ) {
     case "remove":
+      if ( from.op === 'add' ) {
+        into.op = 'replace'
+        into.value = from.value
+      }
       return true
     case "add":
       mergeWithParentAdd(into, from)

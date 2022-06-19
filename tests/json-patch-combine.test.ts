@@ -85,7 +85,7 @@ describe('json patchs combine', () => {
       delete (modifiable.l1 as Record<string, string>).l2
     })
 
-    const combined = combinedJSONPatches(changes)
+    const combined = combinedJSONPatches(changes!)
     expect(combined).toEqual([{
       op: 'add',
       path: '/l1',
@@ -106,7 +106,7 @@ describe('json patchs combine', () => {
       delete (modifiable.subObject as Record<string, string>).key3
     })
 
-    const combined = combinedJSONPatches(changes)
+    const combined = combinedJSONPatches(changes!)
     expect(combined.length).toEqual(0)
   })
 
@@ -132,7 +132,7 @@ describe('json patchs combine', () => {
       delete (modifiable.key2 as Record<string, Record<string, unknown>>).key21.key212
     })
 
-    const combined = combinedJSONPatches(changes)
+    const combined = combinedJSONPatches(changes!)
     expect(combined).toEqual([{
       op: 'add',
       path: '/key2',
@@ -180,6 +180,30 @@ describe('json patchs combine', () => {
     expect(source).toEqual({
       replaceMe: 'I replaced you'
     })
+  })
+
+
+  test("correclty handles a delete followed by a new assignment as a replace", () => {
+    const operations = [
+      {
+        op: 'remove' as const,
+        path: '/nodes/1',
+        old: {},
+        value: undefined,
+        pathArray: [ 'nodes', '1' ]
+      },
+      {
+        op: 'add' as const,
+        path: '/nodes/1',
+        old: {},
+        value: { new: 'stuff' },
+        pathArray: [ 'nodes', '1' ]
+      }
+    ]
+
+    const result = combinedJSONPatches(operations)
+    expect(result).toHaveLength(1)
+    expect(result[0]).toHaveProperty('op', 'replace')
   })
 
 })
