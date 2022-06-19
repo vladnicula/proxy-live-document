@@ -12,9 +12,9 @@ An opinionated, mutable, single store state management library that allows fine 
 ## Installation
 
 ```
-npm i vladnicula/proxy-live-document#master
+npm i proxy-live-document
 ```
-(will be published on NPM at some point)
+
 
 ## Core ideas
 
