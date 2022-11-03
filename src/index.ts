@@ -1,12 +1,12 @@
 import { ProxyCache } from "./proxy-cache"
 
-type ObjectTree = object
+export type ObjectTree = object
 
-type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
+export type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 
 export const Patcher = Symbol('Patcher')
-const WatcherProxy = Symbol('WatcherProxy')
-const TargetRef = Symbol('TargetRef')
+export const WatcherProxy = Symbol('WatcherProxy')
+export const TargetRef = Symbol('TargetRef')
 
 type JSONPatch = {
   op: 'replace' | 'remove' | 'add',
@@ -199,6 +199,7 @@ export class MutationsManager {
     if ( !proxy ) {
       proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
         target: subTarget,
+        ceva: "string",
         dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
         pathArray: currentPathArray,
         proxyfyAccess:  <T extends ObjectTree>(someOtherSubTarget: T, someOtherPathArray?: string[]) => {
@@ -211,12 +212,14 @@ export class MutationsManager {
     return proxy
   }
 
-  startMutation (target: ObjectTree) {
+  startMutation (target: ObjectTree, selectorTreePointer: any,) {
     this.mutationMaps.set(target, new WeakMap() as ProxyMapType<ObjectTree>)
     this.mutationDirtyPaths.set(target, new Set<ProxyMutationObjectHandler<ObjectTree>>())
 
     const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
       target,
+      ceva: "string",
+      selectorTreePointer: selectorTreePointer,
       dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
       proxyfyAccess: <T extends ObjectTree>(subTarget: T, pathArray?: string[]) => {
         return this.getSubProxy(target, subTarget, pathArray)
@@ -269,12 +272,12 @@ export class MutationsManager {
 
   mutate <T extends ObjectTree>(
     target: T,
+    selectorTreePointer: any,
     callback: (mutable: T) => unknown
   ) {
-
     const isOuterMostTransactionForThisObject = !this.hasRoot(target)
     if ( isOuterMostTransactionForThisObject ) {
-      this.startMutation(target)
+      this.startMutation(target, selectorTreePointer)
     }
 
     const proxyWrapper = this.mutationMaps.get(target)?.get(target) as T
@@ -299,7 +302,8 @@ export const mutate = <T extends ObjectTree>(
   stateTree: T,
   callback: (mutable: T) => unknown
 ) => {
-  return mutationsManager.mutate(stateTree, callback)
+  // console.log("selector tree dereference here")
+  return mutationsManager.mutate(stateTree, {key: "root"}, callback)
 }
 
 /**
@@ -324,12 +328,14 @@ export class ProxyMutationObjectHandler<T extends object> {
   readonly targetRef: T
   readonly ops: JSONPatch[] = []
   readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
-
+  readonly selectorTreePointer: any
   readonly proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
 
   constructor (params: {
     target: T, 
     pathArray?: string []
+    ceva: string,
+    selectorTreePointer: any,
     dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>,
     proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
   }) {
@@ -338,6 +344,7 @@ export class ProxyMutationObjectHandler<T extends object> {
     this.targetRef = target
     this.proxyfyAccess = proxyfyAccess
     this.dirtyPaths = dirtyPaths
+    this.selectorTreePointer = params.selectorTreePointer
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -430,12 +437,12 @@ export class ProxyMutationObjectHandler<T extends object> {
      */
     let opOriginal = this.original[prop]
     if ( typeof opOriginal === 'object' && opOriginal !== null ) {
-      opOriginal = {...opOriginal}
+      opOriginal = {...opOriginal} as Partial<T>[K]
     }
     
     this.ops.push({
       op: opType,
-      path: `${prop}`,
+      path: String(prop),
       old: opOriginal,
       value: opValue,
     })
@@ -458,7 +465,7 @@ export class ProxyMutationObjectHandler<T extends object> {
 
         let opOriginal = this.original[prop]
         if ( typeof opOriginal === 'object' && opOriginal !== null ) {
-          opOriginal = {...opOriginal}
+          opOriginal = {...opOriginal} as Partial<T>[K & string]
         }
 
         this.ops.push({
@@ -669,7 +676,7 @@ class StateTreeSelectorsManager<
 }
 
 const selectorsManager = new StateTreeSelectorsManager()
-type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
+export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
 export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
   stateTree: T, 
