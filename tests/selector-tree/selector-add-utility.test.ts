@@ -1,9 +1,9 @@
-import { addSelectorToTree, SelectorTreeRoot } from '../../src/selector-map'
+import { addSelectorToTree, SelectorTreeBranch } from '../../src/selector-map'
 
 describe('Selector Utility: Add', () => {
     it("creates first selector node in selector tree", () => {
         const selectorFn = () => {}
-        const tree: SelectorTreeRoot = {}
+        const tree: SelectorTreeBranch = { propName: 'root' }
         
         addSelectorToTree(
             tree,
@@ -24,7 +24,7 @@ describe('Selector Utility: Add', () => {
     it("creates second selector branching off common path", () => {
         const selectorFn1 = () => {}
         const selectorFn2 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root'}
 
         addSelectorToTree(
             tree,
@@ -52,7 +52,7 @@ describe('Selector Utility: Add', () => {
     it("creates second selector in same path", () => {
         const selectorFn1 = () => {}
         const selectorFn2 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root'}
 
         addSelectorToTree(
             tree,
@@ -75,7 +75,7 @@ describe('Selector Utility: Add', () => {
 
     it("returns pointer towards the node that accepted the subscription", () => {
         const selectorFn1 = () => {}
-        const tree: SelectorTreeRoot = {}
+        const tree: SelectorTreeBranch = { propName: 'root'}
 
         const refToLeaf1 = addSelectorToTree(
             tree,

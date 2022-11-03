@@ -204,7 +204,7 @@ describe('basic select', () => {
     expect(callbackSpy2).toHaveBeenCalledTimes(2)
   })
 
-  it('allows reshaping the selection array while keeping all bound observers', () => {
+  it.skip('allows reshaping the selection array while keeping all bound observers', () => {
     const state = {
       key1: 'something',
       key2: 'something-else'

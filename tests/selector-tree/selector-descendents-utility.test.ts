@@ -1,10 +1,10 @@
-import { addSelectorToTree, getRefDescedents, SelectorTreeRoot } from '../../src/selector-map'
+import { addSelectorToTree, getRefDescedents, SelectorTreeBranch } from '../../src/selector-map'
 
 describe('Selector Utility: Descendents', () => {
 
     it("gets descendent according to prop name", () => {
         const selectorFn1 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
 
         const leaf1RefFromAdd = addSelectorToTree(
             tree,
@@ -25,7 +25,7 @@ describe('Selector Utility: Descendents', () => {
 
     it("gets two pointers when * is found", () => {
         const selectorFn1 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
 
         const leaf1RefFromAdd = addSelectorToTree(
             tree,
@@ -52,7 +52,7 @@ describe('Selector Utility: Descendents', () => {
 
     it("gets two pointers when ** is found", () => {
         const selectorFn1 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
 
         const leaf1RefFromAdd = addSelectorToTree(
             tree,
@@ -79,7 +79,7 @@ describe('Selector Utility: Descendents', () => {
 
     it("Returns null when * or fixed name", () => {
         const selectorFn1 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
 
         const leaf1RefFromAdd = addSelectorToTree(
             tree,
@@ -109,7 +109,7 @@ describe('Selector Utility: Descendents', () => {
 
     it("Returns returns same ** node when not found", () => {
         const selectorFn1 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
 
         const doubleStarRef = addSelectorToTree(
             tree,
@@ -133,13 +133,13 @@ describe('Selector Utility: Descendents', () => {
             'notFound'
         )
 
-        expect(doubleStarUnmatchedResponse).toEqual(doubleStarRef)
+        expect(doubleStarUnmatchedResponse).toContain(doubleStarRef)
         expect(doubleStarUnmatchedResponse2).toHaveLength(1)
     })
 
     it("returns null when children exist but none match", () => {
         const selectorFn1 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
         addSelectorToTree(
             tree,
             ['intermediary', 'leaf1'],
@@ -151,6 +151,22 @@ describe('Selector Utility: Descendents', () => {
         )
 
         expect(aNullResponse).toBeNull()
+    })
+
+    it("handles numbers as keys as well", () => {
+        const selectorFn1 = () => {}
+        let tree: SelectorTreeBranch = { propName: 'root' }
+        addSelectorToTree(
+            tree,
+            ['intermediary', 1],
+            selectorFn1
+        )
+        const aMatch = getRefDescedents(
+            tree.children!.intermediary,
+            1
+        )
+
+        expect(aMatch).not.toBeNull()
     })
 
 })

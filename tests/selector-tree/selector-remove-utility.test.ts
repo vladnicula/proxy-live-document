@@ -1,11 +1,11 @@
-import { addSelectorToTree, SelectorTreeRoot, removeSelectorFromTree } from '../../src/selector-map'
+import { addSelectorToTree, SelectorTreeBranch, removeSelectorFromTree } from '../../src/selector-map'
 
 describe('Selector Utility: Remove', () => {
 
     it("removes selector sub from tree", () => {
         const selectorFn1 = () => {}
         const selectorFn2 = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: "root"}
 
         addSelectorToTree(
             tree,
@@ -33,7 +33,7 @@ describe('Selector Utility: Remove', () => {
     it("silently fails if removing does not find item", () => {
         const selectorFn1 = () => {}
         const notSelectorFn = () => {}
-        let tree: SelectorTreeRoot = {}
+        let tree: SelectorTreeBranch = { propName: "root"}
 
         const refLeaf1 = addSelectorToTree(
             tree,

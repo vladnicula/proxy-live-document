@@ -142,7 +142,9 @@ describe('flexible select', () => {
         return nodeIdsThatChangedTheirStyles
       })
 
-    const callbackSpy = jest.fn()
+    const callbackSpy = jest.fn((value) => {
+      // console.log(`callbackSpy`, value)
+    })
     selector.observe(callbackSpy)
     
     mutate(stateTree, (modifiable) => {
@@ -228,7 +230,9 @@ describe('flexible select', () => {
       
     })
 
-    expect(callbackSpy).toHaveBeenCalledTimes(0)
+    // from 1.0.2 forward, `nodes/*/styles/**` will run when any new node is added
+    // nodes.nodeid4.styles = {} matches the selector above
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
   })
 
 })
