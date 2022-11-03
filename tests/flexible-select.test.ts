@@ -142,9 +142,7 @@ describe('flexible select', () => {
         return nodeIdsThatChangedTheirStyles
       })
 
-    const callbackSpy = jest.fn((value) => {
-      // console.log(`callbackSpy`, value)
-    })
+    const callbackSpy = jest.fn()
     selector.observe(callbackSpy)
     
     mutate(stateTree, (modifiable) => {

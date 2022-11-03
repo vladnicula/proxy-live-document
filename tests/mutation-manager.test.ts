@@ -7,7 +7,7 @@ describe('behaviour of mutation manager', () => {
   it('keep references of root objects being mutated', () => {
     const rootA = {}
     const rootB = {}
-    mutationManager.startMutation(rootA, { this: "is it"})
+    mutationManager.startMutation(rootA)
     expect(mutationManager.hasRoot(rootA)).toEqual(true)
     expect(mutationManager.hasRoot(rootB)).toEqual(false)
     mutationManager.commit(rootA)
