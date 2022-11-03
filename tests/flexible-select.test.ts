@@ -228,7 +228,9 @@ describe('flexible select', () => {
       
     })
 
-    expect(callbackSpy).toHaveBeenCalledTimes(0)
+    // from 1.0.2 forward, `nodes/*/styles/**` will run when any new node is added
+    // nodes.nodeid4.styles = {} matches the selector above
+    expect(callbackSpy).toHaveBeenCalledTimes(1)
   })
 
 })

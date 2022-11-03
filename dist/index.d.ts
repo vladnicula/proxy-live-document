@@ -1,6 +1,9 @@
-declare type ObjectTree = object;
-declare type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>;
+import { SelectorTreeBranch } from "./selector-map";
+export declare type ObjectTree = object;
+export declare type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>;
 export declare const Patcher: unique symbol;
+export declare const WatcherProxy: unique symbol;
+export declare const TargetRef: unique symbol;
 declare type JSONPatch = {
     op: 'replace' | 'remove' | 'add';
     path: string;
@@ -26,6 +29,7 @@ export declare const mutateFromPatches: <T extends object>(stateTree: T, patches
 export declare class MutationsManager {
     mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>>;
     mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>>;
+    mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>>;
     private getSubProxy;
     startMutation(target: ObjectTree): void;
     hasRoot(rootA: any): boolean;
@@ -53,12 +57,15 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     readonly targetRef: T;
     readonly ops: JSONPatch[];
     readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
-    readonly proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[]) => T;
+    readonly proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[]) => T;
+    readonly selectorPointerArray: Array<SelectorTreeBranch>;
+    readonly writeSelectorPointerArray: Array<SelectorTreeBranch>;
     constructor(params: {
         target: T;
         pathArray?: string[];
+        selectorPointerArray: Array<SelectorTreeBranch>;
         dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
-        proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[]) => T;
+        proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[]) => T;
     });
     get<K extends keyof T>(target: T, prop: K): any;
     set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;
@@ -80,20 +87,11 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     has<K extends keyof T>(target: T, key: K): boolean;
 }
 export declare const pathMatchesSource: (source: string[], target: string[]) => boolean;
-declare class StateTreeSelector<T extends ObjectTree, MP extends SeletorMappingBase<T>> {
-    private selectorSet;
-    private mappingFn;
-    private lastSelectorValue;
-    private callbackSet;
-    private disposeMethod;
-    constructor(selectorSet: string[], mappingFn: MP, disposeMethod: Function);
-    reshape(callback: (selectorSet: string[][]) => string[][]): void;
-    match(pathArrays: string[][]): false | string[];
-    run(stateTree: T, pathsArray: JSONPatchEnhanced[]): void;
-    observe(callback: (input: ReturnType<MP>) => unknown): () => void;
-    dispose(): void;
-}
-declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
-export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => StateTreeSelector<T, MP>;
+export declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
+export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => {
+    reshape: () => never;
+    observe: (fn: (input: unknown) => unknown) => () => void;
+    dispose: () => void;
+};
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
 export {};

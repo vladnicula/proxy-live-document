@@ -1,12 +1,13 @@
 import { ProxyCache } from "./proxy-cache"
+import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
 
-type ObjectTree = object
+export type ObjectTree = object
 
-type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
+export type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 
 export const Patcher = Symbol('Patcher')
-const WatcherProxy = Symbol('WatcherProxy')
-const TargetRef = Symbol('TargetRef')
+export const WatcherProxy = Symbol('WatcherProxy')
+export const TargetRef = Symbol('TargetRef')
 
 type JSONPatch = {
   op: 'replace' | 'remove' | 'add',
@@ -192,19 +193,26 @@ export class MutationsManager {
 
   mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
   mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>> = new Map()
+  mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>> = new Map()
 
-  private getSubProxy = <T extends ObjectTree>(target: ObjectTree, subTarget: T, currentPathArray?: string[]): T => {
+  private getSubProxy = <T extends ObjectTree>(
+    target: ObjectTree, 
+    selectorTreePointer: Array<SelectorTreeBranch>,
+    subTarget: T, 
+    currentPathArray?: string[],
+  ): T => {
     const mutationProxies = this.mutationMaps.get(target)
     let proxy = mutationProxies?.get(subTarget) as T | undefined
     if ( !proxy ) {
       proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
         target: subTarget,
+        selectorPointerArray: selectorTreePointer,
         dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
         pathArray: currentPathArray,
-        proxyfyAccess:  <T extends ObjectTree>(someOtherSubTarget: T, someOtherPathArray?: string[]) => {
-          return this.getSubProxy(target, someOtherSubTarget, someOtherPathArray)
+        proxyfyAccess:  <T extends ObjectTree>(someOtherSubTarget: T, newPointers: SelectorTreeBranch[], someOtherPathArray?: string[]) => {
+          return this.getSubProxy(target, newPointers, someOtherSubTarget, someOtherPathArray)
         }
-      })) as T
+      }) as ProxyHandler<T>) as T
       mutationProxies?.set(subTarget, proxy)
     }
 
@@ -213,16 +221,25 @@ export class MutationsManager {
 
   startMutation (target: ObjectTree) {
     this.mutationMaps.set(target, new WeakMap() as ProxyMapType<ObjectTree>)
-    this.mutationDirtyPaths.set(target, new Set<ProxyMutationObjectHandler<ObjectTree>>())
 
+    const proxyMapForMutation = new WeakMap() as ProxyMapType<ObjectTree>
+    const mutationDirtyPaths = new Set<ProxyMutationObjectHandler<ObjectTree>>()
+    const selectorPointers = new Array<SelectorTreeBranch>(
+      selectorsManager.getSelectorTree(target)
+    )
     const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
       target,
-      dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
-      proxyfyAccess: <T extends ObjectTree>(subTarget: T, pathArray?: string[]) => {
-        return this.getSubProxy(target, subTarget, pathArray)
+      selectorPointerArray: selectorPointers,
+      dirtyPaths: mutationDirtyPaths,
+      proxyfyAccess: <T extends ObjectTree>(subTarget: T, newPointers: SelectorTreeBranch[], pathArray?: string[]) => {
+        return this.getSubProxy(target, newPointers, subTarget, pathArray)
       }
     }))
-    this.mutationMaps.get(target)?.set(target, rootProxy)
+    proxyMapForMutation.set(target, rootProxy)
+
+    this.mutationDirtyPaths.set(target, mutationDirtyPaths)
+    this.mutationMaps.set(target, proxyMapForMutation)
+    this.mutationSelectorPointers.set(target, selectorPointers)
   }
 
   hasRoot (rootA: any) {
@@ -234,6 +251,19 @@ export class MutationsManager {
     if ( !dirtyPaths ) {
       return []
     }
+
+    const selectorPaths =  Array.from(dirtyPaths).reduce((
+      acc, item
+    ) => {
+      const { writeSelectorPointerArray } = item
+      acc.push(...writeSelectorPointerArray)
+      return acc
+    }, [] as SelectorTreeBranch[])
+
+    const uniqueSelectorPaths = [...new Set(selectorPaths)].filter((item) => {
+      return item.propName !== 'root'
+    })
+
     const patch = Array.from(dirtyPaths).reduce(
       (
         acc: JSONPatchEnhanced[],
@@ -258,9 +288,11 @@ export class MutationsManager {
       []
     )
   
+
     const combinedPatches = combinedJSONPatches(patch)
-    selectorsManager.processPatches(target, combinedPatches)
-    
+    selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
+    // selectorsManager.processPatches(target, combinedPatches)
+
     this.mutationMaps.delete(target)
     this.mutationDirtyPaths.delete(target)
 
@@ -271,7 +303,6 @@ export class MutationsManager {
     target: T,
     callback: (mutable: T) => unknown
   ) {
-
     const isOuterMostTransactionForThisObject = !this.hasRoot(target)
     if ( isOuterMostTransactionForThisObject ) {
       this.startMutation(target)
@@ -324,20 +355,23 @@ export class ProxyMutationObjectHandler<T extends object> {
   readonly targetRef: T
   readonly ops: JSONPatch[] = []
   readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
-
-  readonly proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
+  readonly proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[] ) => T
+  readonly selectorPointerArray: Array<SelectorTreeBranch>
+  readonly writeSelectorPointerArray: Array<SelectorTreeBranch> = []
 
   constructor (params: {
     target: T, 
     pathArray?: string []
+    selectorPointerArray: Array<SelectorTreeBranch>,
     dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>,
-    proxyfyAccess: <T extends ObjectTree>(target: T, pathArray?: string[] ) => T
+    proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[] ) => T
   }) {
     const { target, pathArray = [], proxyfyAccess, dirtyPaths} = params
     this.pathArray = pathArray
     this.targetRef = target
     this.proxyfyAccess = proxyfyAccess
     this.dirtyPaths = dirtyPaths
+    this.selectorPointerArray = params.selectorPointerArray
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -367,8 +401,20 @@ export class ProxyMutationObjectHandler<T extends object> {
         return subEntity
       }
 
+      const { selectorPointerArray } = this
+      const newPointers = selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+        const descendentPointers = getRefDescedents(
+          item,
+          prop as any
+        )
+        if ( descendentPointers ) {
+          acc.push(...descendentPointers)
+        }
+        return acc
+      }, [])
       const entityProxy = this.proxyfyAccess(
         subEntity as unknown as object,
+        newPointers,
         [...this.pathArray, prop] as string[]
       )
 
@@ -383,6 +429,21 @@ export class ProxyMutationObjectHandler<T extends object> {
   set <K extends keyof T>(target: T, prop: K, value: T[K]) {
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
+    // console.log(`set`, target, prop, value)
+
+    this.writeSelectorPointerArray.push(
+      ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+        const descendentPointers = getRefDescedents(
+          item,
+          prop as string | number
+        )
+        if ( descendentPointers ) {
+          acc.push(...descendentPointers)
+        }
+        return acc
+      }, [])
+    )
+
     this.dirtyPaths.add(this)
     // could "tick" right here and produce the derivates :) :-? 
     let opType: 'add' | 'replace' | 'remove' = 'add'
@@ -430,12 +491,12 @@ export class ProxyMutationObjectHandler<T extends object> {
      */
     let opOriginal = this.original[prop]
     if ( typeof opOriginal === 'object' && opOriginal !== null ) {
-      opOriginal = {...opOriginal}
+      opOriginal = {...opOriginal} as Partial<T>[K]
     }
     
     this.ops.push({
       op: opType,
-      path: `${prop}`,
+      path: String(prop),
       old: opOriginal,
       value: opValue,
     })
@@ -449,6 +510,19 @@ export class ProxyMutationObjectHandler<T extends object> {
   deleteProperty <K extends keyof T>(target: T, prop: K) {
     if (prop in target) {
       if ( typeof prop === 'string' ) {
+
+        this.writeSelectorPointerArray.push(
+          ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+            const descendentPointers = getRefDescedents(
+              item,
+              prop as string | number
+            )
+            if ( descendentPointers ) {
+              acc.push(...descendentPointers)
+            }
+            return acc
+          }, [])
+        )
         this.dirtyPaths.add(this)
         this.deleted[prop] = true
         
@@ -458,7 +532,7 @@ export class ProxyMutationObjectHandler<T extends object> {
 
         let opOriginal = this.original[prop]
         if ( typeof opOriginal === 'object' && opOriginal !== null ) {
-          opOriginal = {...opOriginal}
+          opOriginal = {...opOriginal} as Partial<T>[K & string]
         }
 
         this.ops.push({
@@ -548,140 +622,111 @@ export const pathMatchesSource = (source: string[], target: string[] ) => {
   return true
 }
 
-const pathsMatchAnySources = (source: string[][], target: string[][] ) => {
-  for ( let i = 0; i < source.length; i += 1 ) {
-    for ( let j = 0; j < target.length; j += 1 ) {
-      if ( pathMatchesSource(source[i], target[j]) ) {
-        return target[j]
-      }
-    }
+/**
+ * Returns the array of keys that make up the selector path
+ * Removes the / at the beginning of the string, if it is 
+ * specified
+ * 
+ * @param selector string
+ * @returns string[]
+ */
+const getSelectorPathArray = (selector:string) => {
+  if (selector.startsWith('/') ) {
+    return selector.substring(1).split('/')
   }
-
-  return false
+  return selector.split('/')
 }
-
-class StateTreeSelector <T extends ObjectTree, MP extends SeletorMappingBase<T>> {
-  private selectorSet: Array<string[]>
-  private mappingFn: MP
-  private lastSelectorValue: null | any = null
-
-  private callbackSet: Set<(input: ReturnType<MP>) => unknown> = new Set()
-  private disposeMethod: Function
-
-  constructor (
-    selectorSet: string[],
-    mappingFn: MP,
-    disposeMethod: Function
-  ) {
-    this.mappingFn = mappingFn
-    this.disposeMethod = disposeMethod
-    this.selectorSet = selectorSet.map((stringPath) => {
-      if (stringPath.startsWith('/') ) {
-        return stringPath.substr(1).split('/')
-      }
-      return stringPath.split('/')
-    })
-  }
-
-  reshape ( callback: (selectorSet: string[][]) => string[][] ) {
-    this.selectorSet = callback(this.selectorSet)
-  }
-
-  match ( pathArrays:string[][] ) {
-    const selectorSet = this.selectorSet
-    return pathsMatchAnySources(selectorSet, pathArrays)
-  }
-
-  run (stateTree: T, pathsArray: JSONPatchEnhanced[]) {
-    const mappedValue = this.mappingFn(stateTree, pathsArray) as ReturnType<MP>
-    if ( this.lastSelectorValue !== mappedValue ) {
-      this.lastSelectorValue = mappedValue
-      this.callbackSet.forEach((callback) => {
-        callback(mappedValue)
-      })
-    }
-  }
-
-  observe (callback: (input: ReturnType<MP>) => unknown) {
-    if ( this.callbackSet.has(callback) ) {
-      throw new Error(`this callback was already registered. If you run things twice, create two different callbacks`)
-    }
-    this.callbackSet.add(callback)
-    return () => {
-      this.callbackSet.delete(callback)
-    }
-  }
-
-  dispose () {
-    this.disposeMethod()
-  }
-}
-
 class StateTreeSelectorsManager<
   T extends ObjectTree, 
-  K extends StateTreeSelector<T, SeletorMappingBase<T>>
 > {
-  
-  selectorMap = new WeakMap<T, {selectors: K[]}>()
-
-  registerSelector (stateTree: T, selector: K) {
-    let selectorForThisTree = this.selectorMap.get(stateTree)
-    if ( !selectorForThisTree ) {
-      selectorForThisTree = {
-        selectors: [] as K[]
+  // TODO could be a global weak map, and have less
+  // class instances in the implementation
+  selectorTrees = new WeakMap<T, SelectorTreeBranch>()
+  getSelectorTree(stateTree: T) {
+    if (!this.selectorTrees.has(stateTree)) {
+      const newSelectorTree: SelectorTreeBranch = {
+        propName: 'root'
       }
-      this.selectorMap.set(stateTree, selectorForThisTree)
+      this.selectorTrees.set(stateTree, newSelectorTree)
+      return newSelectorTree
     }
-
-    selectorForThisTree.selectors.push(selector)
+    return this.selectorTrees.get(stateTree)!
   }
 
-  removeSelector (stateTree: T, selector: K ) {
-    const selectorForThisTree = this.selectorMap.get(stateTree)
-    if ( !selectorForThisTree ) {
-      return
-    }
+  runSelectorPointers(
+    stateTree: T, 
+    selectorPointers: SelectorTreeBranch[],
+    combinedPatches: JSONPatchEnhanced[]
+  ) {
+    const calledFunctions = new Set<Function>()
 
-    const pos = selectorForThisTree.selectors.indexOf(selector)
-    if ( pos !== -1 ) {
-      selectorForThisTree.selectors = [
-        ...selectorForThisTree.selectors.slice(0, pos),
-        ...selectorForThisTree.selectors.slice(pos + 1)
-      ]
-    }
-  }
-
-  processPatches(stateTree:T, combinedPatches: JSONPatchEnhanced[]) {
-    const selectors = this.selectorMap.get(stateTree)
-    if ( !selectors || !selectors.selectors || selectors.selectors.length === 0 ) {
-      return
-    }
-
-    const pathArrays = combinedPatches.map((patch) => patch.pathArray)
-    for ( let i = 0; i < selectors.selectors.length; i += 1 ) {
-      const itSelector = selectors.selectors[i]
-      const matchedPath = itSelector.match(pathArrays)
-      if ( matchedPath ) {
-        itSelector.run(stateTree, combinedPatches)
+    const callSelector = (sub: SeletorMappingBase<any>) => {
+      if ( calledFunctions.has(sub) ) {
+        return
       }
+      // console.log(`running`, sub.toString())
+      calledFunctions.add(sub)
+      sub(stateTree, combinedPatches)
     }
+
+    const callSelectorOnLayerThenChildren = (layerPointers: SelectorTreeBranch[]) => {
+      layerPointers.forEach((layerPointer) => {
+        const { subs, children } = layerPointer
+        subs?.forEach(callSelector)
+        if ( children ) {
+          callSelectorOnLayerThenChildren(Object.values(children))
+        }
+      })
+    }
+
+    callSelectorOnLayerThenChildren(selectorPointers)
   }
 }
 
 const selectorsManager = new StateTreeSelectorsManager()
-type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
+export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
 export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
   stateTree: T, 
   selectors: string[],
   mappingFn: MP
 ) => {
-  const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T, StateTreeSelector<T, MP>>)
-  const selector = new StateTreeSelector<T, MP>(selectors, mappingFn, () => {
-    castSelectorManager.removeSelector(stateTree, selector)
-  });
-  castSelectorManager.registerSelector(stateTree, selector)
-  return selector
+  
+  const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
+
+  const selectorTree = castSelectorManager.getSelectorTree(stateTree)
+  const observersSet = new Set<(input: ReturnType<SeletorMappingBase<T>>) => unknown>()
+  const selectorWithObservers: SeletorMappingBase<any> = (...args) => {
+    const value = mappingFn(...args)
+    observersSet.forEach(obs => obs(value))
+  }
+  const pointers = selectors.map((selector) => {
+    return addSelectorToTree(
+      selectorTree,
+      getSelectorPathArray(selector),
+      selectorWithObservers,
+    )
+  })
+  
+  return {
+    reshape: () => {
+      throw new Error(`Reshape method is no longer supported`)
+    },
+    observe: (fn: (input: ReturnType<SeletorMappingBase<T>>) => unknown) => {
+      observersSet.add(fn)
+      return () => {
+        observersSet.delete(fn)
+      }
+    },
+    dispose: () => {
+      for (const pointer of pointers) {
+        removeSelectorFromTree(
+          pointer,
+          mappingFn
+        )
+      }
+    }
+  }
 }
 
 export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
