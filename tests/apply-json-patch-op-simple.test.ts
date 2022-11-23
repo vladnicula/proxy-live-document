@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { applyJSONPatchOperation } from "../src"
 
 describe('applyJSONPatchOperation - simple', () => {

@@ -1,3 +1,4 @@
+import { describe, it, expect , vi} from 'vitest'
 import { mutate, select } from "../src"
 
 describe('flexible select', () => {
@@ -20,7 +21,7 @@ describe('flexible select', () => {
         return Object.keys(mappable.givenObject)
       })
 
-    const callbackSpy = jest.fn()
+    const callbackSpy = vi.fn()
     selector.observe(callbackSpy)
     
     mutate(stateTree, (modifiable) => {
@@ -67,7 +68,7 @@ describe('flexible select', () => {
         return {...mappable.subtree1}
       })
 
-    const callbackSpy = jest.fn()
+    const callbackSpy = vi.fn()
     selector.observe(callbackSpy)
     
     mutate(stateTree, (modifiable) => {
@@ -142,7 +143,7 @@ describe('flexible select', () => {
         return nodeIdsThatChangedTheirStyles
       })
 
-    const callbackSpy = jest.fn()
+    const callbackSpy = vi.fn()
     selector.observe(callbackSpy)
     
     mutate(stateTree, (modifiable) => {
@@ -217,7 +218,7 @@ describe('flexible select', () => {
         return nodeIdsThatChangedTheirStyles
       })
 
-    const callbackSpy = jest.fn()
+    const callbackSpy = vi.fn()
     selector.observe(callbackSpy)
 
     mutate(stateTree, (modifiable) => {

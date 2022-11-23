@@ -1,3 +1,4 @@
+import { describe, it, expect , vi} from 'vitest'
 import { mutate, mutateFromPatches, select, combinedJSONPatches, Patcher, JSONPatchEnhanced } from "../src"
 
 describe('mutate from patches', () => {
@@ -13,7 +14,7 @@ describe('mutate from patches', () => {
       modifiable.observeMe = 'changed'
     })
 
-    mutateFromPatches(stateInClientTwo, patches)
+    mutateFromPatches(stateInClientTwo, patches!)
 
     expect(stateInClientTwo).toHaveProperty('observeMe', 'changed')
     expect(stateInClientOne).toHaveProperty('observeMe', 'changed')
@@ -33,7 +34,7 @@ describe('mutate from patches', () => {
       modifiable.observeMe = 'changed'
     })
 
-    const observableCallback = jest.fn()
+    const observableCallback = vi.fn()
 
     select(
       stateInClientTwo,
@@ -42,7 +43,7 @@ describe('mutate from patches', () => {
     )
     .observe(observableCallback)
 
-    mutateFromPatches(stateInClientTwo, patches)
+    mutateFromPatches(stateInClientTwo, patches!)
     
     expect(stateInClientTwo).toHaveProperty('observeMe', 'changed')
     expect(stateInClientOne).toHaveProperty('observeMe', 'changed')
@@ -90,7 +91,7 @@ describe('mutate from patches', () => {
       modifiable.nodes['id1'].type = 'something-else'
     })
 
-    const observableCallback = jest.fn()
+    const observableCallback = vi.fn()
 
     select(
       otherDoc,
@@ -102,7 +103,7 @@ describe('mutate from patches', () => {
     expect(node1).toHaveProperty('type', 'something-else')
     expect(node2).toHaveProperty('type', 'div')
 
-    mutateFromPatches(otherDoc, patches)
+    mutateFromPatches(otherDoc, patches!)
     
     expect(observableCallback).toHaveBeenCalledTimes(1)
     expect(observableCallback).toHaveBeenCalledWith(node2)
@@ -112,7 +113,7 @@ describe('mutate from patches', () => {
       modifiable.nodes['id1'].operationThatChangesInternalType('changed-via-method')
     })
 
-    mutateFromPatches(otherDoc, patches2)
+    mutateFromPatches(otherDoc, patches2!)
     expect(node2).toHaveProperty('type', 'changed-via-method')
     expect(observableCallback).toHaveBeenCalledTimes(1)
 
@@ -120,7 +121,7 @@ describe('mutate from patches', () => {
       modifiable.nodes['id1'].operationThatChangesInternalTypeTheRightWay('changed-via-method')
     })
 
-    mutateFromPatches(otherDoc, patches3)
+    mutateFromPatches(otherDoc, patches3!)
     expect(node2).toHaveProperty('type', 'changed-via-method')
     expect(observableCallback).toHaveBeenCalledTimes(2)
   })
@@ -179,7 +180,7 @@ describe('mutate from patches', () => {
       node.addStyleByKey('background', {type: 'static', 'content':'red'})
     })
 
-    mutateFromPatches(doc2, patches)
+    mutateFromPatches(doc2, patches!)
 
     expect(doc2.nodes.instances).toHaveProperty('id1')
     expect(doc2.nodes.instances.id1).toBeInstanceOf(ElementNode)
@@ -207,11 +208,11 @@ describe('mutate from patches', () => {
     })
 
     const allPatches = combinedJSONPatches([
-      ...patches1,
-      ...patches2
+      ...patches1!,
+      ...patches2!
     ])
 
-    mutateFromPatches(stateInClientTwo, allPatches)
+    mutateFromPatches(stateInClientTwo, allPatches!)
 
     expect(stateInClientTwo).toHaveProperty('observeMe', 'changed')
     expect(stateInClientTwo).toHaveProperty('newKey', 'new one here')

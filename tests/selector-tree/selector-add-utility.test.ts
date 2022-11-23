@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { addSelectorToTree, SelectorTreeBranch } from '../../src/selector-map'
 
 describe('Selector Utility: Add', () => {

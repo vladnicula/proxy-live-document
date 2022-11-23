@@ -1,3 +1,4 @@
+import { describe, it, expect , vi} from 'vitest'
 import { MutationsManager } from "../src"
 
 const mutationManager = new MutationsManager()

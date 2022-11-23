@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { addSelectorToTree, SelectorTreeBranch, removeSelectorFromTree } from '../../src/selector-map'
 
 describe('Selector Utility: Remove', () => {

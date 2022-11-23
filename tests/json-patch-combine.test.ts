@@ -1,10 +1,11 @@
 import merge from "lodash.merge"
+import { describe, it, expect , vi} from 'vitest'
 
 import { combinedJSONPatches, mutate, JSONPatchEnhanced } from "../src"
 
 describe('json patchs combine', () => {
 
-  test('correctly merges the same operations', () => {
+  it('correctly merges the same operations', () => {
     const opration = {
       op: 'add' as 'add',
       path: 'subObject/key3',
@@ -20,7 +21,7 @@ describe('json patchs combine', () => {
   })
 
 
-  test('merges all operations of a subtree under an add operation', () => {
+  it('merges all operations of a subtree under an add operation', () => {
     const ops =  [
       {
         op: 'add',
@@ -57,7 +58,7 @@ describe('json patchs combine', () => {
     }])
   })
 
-  test('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2  ', () => {
+  it('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2  ', () => {
     const source: Record<string, string | Record<string, string>> = {}
 
     const changes = mutate(source, (modifiable) => {
@@ -94,7 +95,7 @@ describe('json patchs combine', () => {
     }])
   })
 
-  test('ignores delete that does not target any key', () => {
+  it('ignores delete that does not target any key', () => {
     const source: Record<string, string | Record<string, string>> = {
       subObject: {
         key1: 'value1',
@@ -110,7 +111,7 @@ describe('json patchs combine', () => {
     expect(combined.length).toEqual(0)
   })
 
-  test('handles remove on deeper key of newly added object', () => {
+  it('handles remove on deeper key of newly added object', () => {
     const source: Record<string, string | Record<string, unknown>> = {
       key1: {
         key11: 'value1',
@@ -157,7 +158,7 @@ describe('json patchs combine', () => {
   })
 
 
-  test('replace will merge over adds', () => {
+  it('replace will merge over adds', () => {
     const source: Record<string, string | Record<string, string>> = {
       replaceMe: {
         key1: 'value1',
@@ -183,7 +184,7 @@ describe('json patchs combine', () => {
   })
 
 
-  test("correclty handles a delete followed by a new assignment as a replace", () => {
+  it("correclty handles a delete followed by a new assignment as a replace", () => {
     const operations = [
       {
         op: 'remove' as const,

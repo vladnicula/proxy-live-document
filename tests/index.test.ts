@@ -1,3 +1,4 @@
+import { describe, it, expect , vi} from 'vitest'
 import merge from 'lodash.merge'
 
 import { mutate } from '../src'
@@ -25,18 +26,18 @@ document.nodes['b'] = newBElement
 
 describe('main', () => {
   
-  test("when setting a key on an object, the path includes the key that was set", () => {
+  it("when setting a key on an object, the path includes the key that was set", () => {
     const patch1 = mutate(document, (modifiable) => {
       modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
     })
 
     const expectedPath = '/nodes/b/styles/borderRadius'
     
-    expect(patch1[0].path).not.toBeFalsy()
-    expect(patch1[0].path).toEqual(expectedPath)
+    expect(patch1![0].path).not.toBeFalsy()
+    expect(patch1![0].path).toEqual(expectedPath)
   })
 
-  test("changes are readable inside mutation function immediatly after setting them", () => {
+  it("changes are readable inside mutation function immediatly after setting them", () => {
     mutate(document, (modifiable) => {
       modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
       const thisValue = modifiable.nodes.b.styles['borderRadius']
@@ -45,7 +46,7 @@ describe('main', () => {
     })
   })
 
-  test("changes from mutation get applied to docunmet after mutation", () => {
+  it("changes from mutation get applied to docunmet after mutation", () => {
     mutate(document, (modifiable) => {
       modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
     })
@@ -55,7 +56,7 @@ describe('main', () => {
     expect(document.nodes.b.styles).toHaveProperty('borderRadius', '3px')
   })
 
-  test("simple operations add", () => {
+  it("simple operations add", () => {
     const source: Record<string, string> = {}
     const changes = mutate(source, (modifiable) => {
       modifiable.addedKey = 'value'
@@ -67,7 +68,7 @@ describe('main', () => {
     expect(source).toHaveProperty('addedKey', 'value')
 
     expect(changes).toHaveLength(1)
-    expect(changes[0]).toEqual({
+    expect(changes![0]).toEqual({
       op: 'add',
       path: '/addedKey',
       pathArray: ['addedKey'],
@@ -75,7 +76,7 @@ describe('main', () => {
     })
   })
 
-  test("simple operations modify", () => {
+  it("simple operations modify", () => {
     const INITIAL_VAL = "initialValue"
     const NEW_VAL = 'newValue'
     const TARGET_KEY = 'modKey'
@@ -93,7 +94,7 @@ describe('main', () => {
     expect(source).toHaveProperty(TARGET_KEY, NEW_VAL)
 
     expect(changes).toHaveLength(1)
-    expect(changes[0]).toEqual({
+    expect(changes![0]).toEqual({
       op: 'replace',
       path: `/${TARGET_KEY}`,
       pathArray: [TARGET_KEY],
@@ -102,7 +103,7 @@ describe('main', () => {
     })
   })
 
-  test("simple operations delete", () => {
+  it("simple operations delete", () => {
     const INITIAL_VAL = "initialValue"
     const TARGET_KEY = 'removeableKey'
 
@@ -119,7 +120,7 @@ describe('main', () => {
     expect(source).not.toHaveProperty(TARGET_KEY)
 
     expect(changes).toHaveLength(1)
-    expect(changes[0]).toEqual({
+    expect(changes![0]).toEqual({
       op: 'remove',
       path: `/${TARGET_KEY}`,
       pathArray: [TARGET_KEY],
@@ -127,7 +128,7 @@ describe('main', () => {
     })
   })
 
-  test("object deep merge", () => {
+  it("object deep merge", () => {
     const source: Record<string, string | Record<string, string>> = {
       subObject: {
         key1: 'value1',

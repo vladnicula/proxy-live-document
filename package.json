@@ -16,19 +16,21 @@
   },
   "scripts": {
     "build": "rimraf dist && rollup -c",
-    "test": "jest"
+    "test": "vitest --config ./vitest/vitest.config.ts run",
+    "test:watch": "vitest --config ./vitest/vitest.config.ts watch",
+    "test:coverage": "vitest --config ./vitest/vitest.config.ts run --coverage"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/vladnicula/proxy-live-document"
   },
-  "dependencies": {},
   "devDependencies": {
     "@babel/preset-env": "^7.10.2",
     "@babel/preset-typescript": "^7.10.1",
     "@types/jest": "^25.2.3",
     "@types/lodash.merge": "^4.6.6",
     "@types/uuid": "^8.0.0",
+    "@vitest/coverage-c8": "^0.25.3",
     "husky": "^4.3.0",
     "jest": "^26.6.3",
     "lodash.merge": "^4.6.2",
@@ -37,7 +39,10 @@
     "rollup-plugin-terser": "^7.0.2",
     "rollup-plugin-typescript2": "^0.27.2",
     "typescript": "^3.9.3",
-    "uuid": "^8.3.0"
+    "uuid": "^8.3.0",
+    "vite": "^3.2.4",
+    "vite-tsconfig-paths": "^3.6.0",
+    "vitest": "^0.25.3"
   },
   "keywords": [
     "state-managment",
