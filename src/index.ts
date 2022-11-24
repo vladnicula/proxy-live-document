@@ -1,5 +1,6 @@
 import { ProxyCache } from "./proxy-cache"
 import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
+import { isPromise } from "./utils/isPromise"
 
 export type ObjectTree = object
 
@@ -299,9 +300,9 @@ export class MutationsManager {
     return combinedPatches
   }
 
-  mutate <T extends ObjectTree>(
+  mutate <T extends ObjectTree, K extends (mutable: T) => unknown>(
     target: T,
-    callback: (mutable: T) => unknown
+    callback: K
   ) {
     const isOuterMostTransactionForThisObject = !this.hasRoot(target)
     if ( isOuterMostTransactionForThisObject ) {
@@ -313,7 +314,18 @@ export class MutationsManager {
       return
     }
 
-    callback(proxyWrapper)
+    const result = callback(proxyWrapper)
+
+    if ( isPromise(result) ) {
+      return result.then(() => {
+         // only return the patches on the top most level
+          if ( isOuterMostTransactionForThisObject ) {
+            return this.commit(target)
+          }
+
+          return []
+      })
+    }
 
     // only return the patches on the top most level
     if ( isOuterMostTransactionForThisObject ) {
@@ -326,9 +338,9 @@ export class MutationsManager {
 
 const mutationsManager = new MutationsManager()
 
-export const mutate = <T extends ObjectTree>(
+export const mutate = <T extends ObjectTree, K extends (mutable: T) => unknown>(
   stateTree: T,
-  callback: (mutable: T) => unknown
+  callback: K
 ) => {
   return mutationsManager.mutate(stateTree, callback)
 }
