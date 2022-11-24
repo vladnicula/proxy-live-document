@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { pathMatchesSource } from "../src"
 
 describe('pathMatchesSource', () => {

@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { Patcher, JSONPatchEnhanced, mutate, mutateFromPatches, select } from "../src"
 
 class Task {
@@ -13,7 +15,7 @@ class Task {
 
     const t = new Task(id, title)
     t.checked = checked
-    t.parentId = parentId
+    t.parentId = parentId ?? 'root'
   
     return t
   }
@@ -65,8 +67,8 @@ class TaskListProject {
 
   getOrderedSubtasksIds (taskId: string) {
     return Object.keys(this.taskHierarchy[taskId] || {}).sort((subId1, subId2) => {
-      const pos1 = this.tasks[subId1].pos
-      const pos2 = this.tasks[subId2].pos
+      const pos1 = this.tasks[subId1]!.pos
+      const pos2 = this.tasks[subId2]!.pos
       // this is where the fractional magic would happen
       return parseFloat(pos1) - parseFloat(pos2)
     })
@@ -124,8 +126,8 @@ class TaskListProject {
     const { sourceTaskId, destTaskId, subtaskId, pos } = params
     delete this.taskHierarchy[sourceTaskId][subtaskId]
     this.taskHierarchy[sourceTaskId][destTaskId] = true
-    this.tasks[subtaskId].parentId = destTaskId
-    this.tasks[subtaskId].pos = pos ?? '0'
+    this.tasks[subtaskId]!.parentId = destTaskId
+    this.tasks[subtaskId]!.pos = pos ?? '0'
   }
   
   applyPatch (patch: JSONPatchEnhanced) {
@@ -232,7 +234,7 @@ describe('Task List project test suite', () => {
 
     // -> ws ->  pe server
     // root.tasks.idx -> applyPatch task
-    mutateFromPatches(serverTaskList, clientPatchArray)
+    mutateFromPatches(serverTaskList, clientPatchArray!)
 
     const idOfCreatedTask = Object.keys(clientTaskList.tasks)[0]
 
@@ -243,11 +245,11 @@ describe('Task List project test suite', () => {
     const NEW_TASK_TITLE = 'renamed task title'
     const jsonPatchForModificationOfTask = mutate(clientTaskList, (mutateTaskList) => {
       const targetTask = mutateTaskList.tasks[idOfCreatedTask]
-      targetTask.title = NEW_TASK_TITLE
-      targetTask.checked = true
+      targetTask!.title = NEW_TASK_TITLE
+      targetTask!.checked = true
     })
 
-    mutateFromPatches(serverTaskList, jsonPatchForModificationOfTask)
+    mutateFromPatches(serverTaskList, jsonPatchForModificationOfTask!)
 
     expect(serverTaskList.tasks[idOfCreatedTask]).toHaveProperty('checked', true)
     expect(serverTaskList.tasks[idOfCreatedTask]).toHaveProperty('title', NEW_TASK_TITLE)
@@ -256,7 +258,7 @@ describe('Task List project test suite', () => {
       mutateTaskList.removeTaskById(idOfCreatedTask)
     })
 
-    mutateFromPatches(serverTaskList, jsonPatchForDelete)
+    mutateFromPatches(serverTaskList, jsonPatchForDelete!)
     expect(serverTaskList.tasks[idOfCreatedTask]).toBeUndefined()
   })
 
@@ -268,8 +270,8 @@ describe('Task List project test suite', () => {
     const myNewSubTask = new Task(targetSubTaskId, 'Buy milk')
     myNewSubTask.parentId = myNewTask.id
 
-    const mapperSpy = jest.fn()
-    const callbackSpy = jest.fn()
+    const mapperSpy = vi.fn()
+    const callbackSpy = vi.fn()
 
     const taskKeysSubscription = select(taskListProject, [
       `tasks/${targetTaskId}/**`,
@@ -304,7 +306,7 @@ describe('Task List project test suite', () => {
     expect(mapperSpy).toHaveBeenCalledTimes(2)
 
     mutate(taskListProject, (doc) => {
-      doc.tasks[myNewTask.id].checked = true
+      doc.tasks[myNewTask.id]!.checked = true
     })
 
     
@@ -319,7 +321,7 @@ describe('Task List project test suite', () => {
       const myNewTask = new Task(`3213421451212`, 'Buy bread')
       doc.addTask(myNewTask)
     })
-    expect(taskListProject.taskHierarchy.root).toEqual(patches[1].value)
+    expect(taskListProject.taskHierarchy.root).toEqual(patches![1].value)
   })
   
 })

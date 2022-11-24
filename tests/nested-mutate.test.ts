@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { mutate, JSONPatchEnhanced } from "../src"
 
 describe('nested mutate calls', () => {
@@ -15,9 +17,9 @@ describe('nested mutate calls', () => {
         
         innerPatches2 = mutate(state,  (modifiable) => {
           modifiable.changedInnerLevel2Mutate = 'changed'
-        })
+        })!
 
-      })
+      })!
       
     })
 
@@ -42,9 +44,9 @@ describe('nested mutate calls', () => {
         
         innerPatchState1 = mutate(state1,  (modifiable) => {
           modifiable.changedInnerLevel2Mutate = 'changed'
-        })
+        })!
 
-      })
+      })!
       
     })
 

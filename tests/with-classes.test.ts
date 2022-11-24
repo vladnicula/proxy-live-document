@@ -1,3 +1,4 @@
+import { describe, it, expect , vi} from 'vitest'
 import { v4 as uuidv4 } from 'uuid'
 import { select, mutate } from "../src"
 
@@ -65,7 +66,7 @@ describe('class hierarchy example', () => {
       }
     })
 
-    const observeSpy = jest.fn()
+    const observeSpy = vi.fn()
 
     selector.observe(observeSpy)
 

@@ -1,3 +1,5 @@
+import { describe, it, expect , vi} from 'vitest'
+
 import { mutate, select } from "../src"
 
 describe('basic select', () => {
@@ -7,9 +9,9 @@ describe('basic select', () => {
       observeMe: 'hello'
     }
 
-    const callbackSpy = jest.fn()
-    const callbackSpy2 = jest.fn()
-    const mapperSpy = jest.fn()
+    const callbackSpy = vi.fn()
+    const callbackSpy2 = vi.fn()
+    const mapperSpy = vi.fn()
 
     const selector = select(
       state, 
@@ -51,10 +53,10 @@ describe('basic select', () => {
       iDontCare: 'should not trigger'
     }
 
-    const callbackSpyThatShouldRun = jest.fn()
-    const callbackSpyThatShouldNotRun = jest.fn()
-    const mapperSpyThatShouldRun = jest.fn()
-    const mapperSpyThatShouldNotRun = jest.fn()
+    const callbackSpyThatShouldRun = vi.fn()
+    const callbackSpyThatShouldNotRun = vi.fn()
+    const mapperSpyThatShouldRun = vi.fn()
+    const mapperSpyThatShouldNotRun = vi.fn()
 
     const selectorThatShouldRun = select(
       state, 
@@ -107,8 +109,8 @@ describe('basic select', () => {
       dontObserveMe: 'i am not supposed to be observed'
     }
 
-    const callbackSpyThatShouldRun = jest.fn()
-    const mapperSpyThatShouldRun = jest.fn()
+    const callbackSpyThatShouldRun = vi.fn()
+    const mapperSpyThatShouldRun = vi.fn()
 
     const selectorThatShouldRun = select(
       state, 
@@ -175,8 +177,8 @@ describe('basic select', () => {
       }
     )
 
-    const callbackSpy = jest.fn()
-    const callbackSpy2 = jest.fn()
+    const callbackSpy = vi.fn()
+    const callbackSpy2 = vi.fn()
     const unsub1 = selectorThatShouldRun.observe(callbackSpy)
     const unsub2 = selectorThatShouldRun.observe(callbackSpy2)
 
@@ -222,7 +224,7 @@ describe('basic select', () => {
       }
     )
 
-    const callbackSpy = jest.fn()
+    const callbackSpy = vi.fn()
 
     selectorThatWillBeReshaped.observe(callbackSpy)
 
@@ -241,9 +243,9 @@ describe('basic select', () => {
     // changed key2
     expect(callbackSpy).toHaveBeenCalledTimes(1)
      
-    selectorThatWillBeReshaped.reshape((selectors) => {
-      return [...selectors, [`key2`]]
-    })
+    // selectorThatWillBeReshaped.reshape((selectors) => {
+    //   return [...selectors, [`key2`]]
+    // })
 
     mutate(state, (modifiable) => {
       modifiable.key2 = 'hello on key2 a second time'
@@ -262,9 +264,9 @@ describe('basic select', () => {
     expect(callbackSpy).toHaveBeenCalledTimes(3)
 
 
-    selectorThatWillBeReshaped.reshape((selectors) => {
-      return [[`key2`]]
-    })
+    // selectorThatWillBeReshaped.reshape((selectors) => {
+    //   return [[`key2`]]
+    // })
 
     mutate(state, (modifiable) => {
       modifiable.key2 = 'hello on key2 a trhid time'
@@ -299,7 +301,7 @@ describe('basic select', () => {
     )
 
     //order matters a lot
-    const callback1 = jest.fn()
+    const callback1 = vi.fn()
     selector1.observe(callback1)
 
 
@@ -316,7 +318,7 @@ describe('basic select', () => {
       }
     )
 
-    const callback2 = jest.fn()
+    const callback2 = vi.fn()
 
     selector2.observe(callback2)
 
