@@ -6,8 +6,8 @@ describe('nested mutate calls', () => {
   it('generates correct patches on each nested mutate call for the same object', () => {
     const state: Record<string, string> = {}
 
-    let innerPatches1: JSONPatchEnhanced[] = []
-    let innerPatches2: JSONPatchEnhanced[] = []
+    let innerPatches1: JSONPatchEnhanced[] | Promise<JSONPatchEnhanced[]> = []
+    let innerPatches2: JSONPatchEnhanced[] | Promise<JSONPatchEnhanced[]> = []
 
     const outerPatch = mutate(state, (modifiable) => {
       modifiable.changedTopLevelMutate = 'changed'
@@ -33,8 +33,8 @@ describe('nested mutate calls', () => {
     const state1: Record<string, string> = {}
     const state2: Record<string, string> = {}
 
-    let outerPatchState2: JSONPatchEnhanced[] = []
-    let innerPatchState1: JSONPatchEnhanced[] = []
+    let outerPatchState2: JSONPatchEnhanced[] | Promise<JSONPatchEnhanced[]> = []
+    let innerPatchState1: JSONPatchEnhanced[] | Promise<JSONPatchEnhanced[]> = []
 
     const outerPatchState1 = mutate(state1, (modifiable) => {
       modifiable.changedTopLevelMutate = 'changed'

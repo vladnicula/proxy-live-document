@@ -222,12 +222,12 @@ describe('Task List project test suite', () => {
   })
   
 
-  it('creates json patch for task add, update, remove', () => {
+  it('creates json patch for task add, update, remove', async () => {
     const clientTaskList = new TaskListProject() // client
     const serverTaskList = new TaskListProject() // server
 
     // ui click -> bla bla bla -> action to add task
-    const clientPatchArray = mutate(clientTaskList, (mutateTaskList) => {
+    const clientPatchArray = await mutate(clientTaskList, (mutateTaskList) => {
       mutateTaskList.createTask('test task')
     })
 
@@ -243,7 +243,7 @@ describe('Task List project test suite', () => {
 
 
     const NEW_TASK_TITLE = 'renamed task title'
-    const jsonPatchForModificationOfTask = mutate(clientTaskList, (mutateTaskList) => {
+    const jsonPatchForModificationOfTask = await mutate(clientTaskList, (mutateTaskList) => {
       const targetTask = mutateTaskList.tasks[idOfCreatedTask]
       targetTask!.title = NEW_TASK_TITLE
       targetTask!.checked = true
@@ -254,7 +254,7 @@ describe('Task List project test suite', () => {
     expect(serverTaskList.tasks[idOfCreatedTask]).toHaveProperty('checked', true)
     expect(serverTaskList.tasks[idOfCreatedTask]).toHaveProperty('title', NEW_TASK_TITLE)
 
-    const jsonPatchForDelete = mutate(clientTaskList, (mutateTaskList) => {
+    const jsonPatchForDelete = await mutate(clientTaskList, (mutateTaskList) => {
       mutateTaskList.removeTaskById(idOfCreatedTask)
     })
 
