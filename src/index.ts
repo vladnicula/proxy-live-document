@@ -1,5 +1,6 @@
 import { ProxyCache } from "./proxy-cache"
 import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
+import { isObject } from "./utils/isObject"
 
 export type ObjectTree = object
 
@@ -331,6 +332,103 @@ export const mutate = <T extends ObjectTree>(
   callback: (mutable: T) => unknown
 ) => {
   return mutationsManager.mutate(stateTree, callback)
+}
+
+const makeAutoRunProxy = <T extends ObjectTree>(
+  stateTree: T, 
+  path: string[],
+  selectorTree: SelectorTreeBranch,
+  currentPointers: SelectorTreeBranch[],
+  callbackWithCleanupOfCurrentPointers: () => void
+): object => {
+  return new Proxy(stateTree, {
+    get: (target, prop) => {
+      if ( typeof prop === 'symbol' && prop === WatcherProxy ) {
+        return true
+      }
+      if (typeof prop === "symbol" || prop === 'hasOwnProperty') {
+        return Reflect.get(target, prop);
+      }
+
+      const protoDesc = Object.getOwnPropertyDescriptor(
+        target.constructor.prototype,
+        prop
+      );
+
+      if ( protoDesc?.get ) {
+        return protoDesc.get.call(
+          makeAutoRunProxy(
+            stateTree,
+            path,
+            selectorTree,
+            currentPointers,
+            callbackWithCleanupOfCurrentPointers
+          )
+        )
+      } else {
+        const subEntity = target[prop as keyof typeof target]
+        // we add a selector entity here
+        currentPointers.push(addSelectorToTree(
+          selectorTree,
+          [...path, prop],
+          callbackWithCleanupOfCurrentPointers,
+        ))
+        if (isObject(subEntity)) {
+          return makeAutoRunProxy(
+            subEntity,
+            [...path, prop] as string[],
+            selectorTree,
+            currentPointers,
+            callbackWithCleanupOfCurrentPointers
+          )
+        }
+        return subEntity
+      }
+
+    },
+
+    /**
+     * Proxy trap for Object.getOwnPropertyDescriptor()
+     * Used to check if we are using a proxy that is
+     * intended for usage in the autorun or not
+     */
+    getOwnPropertyDescriptor(target, prop) {
+      if ( prop === WatcherProxy ) {
+        return {
+          configurable: true,
+          value: true
+        }
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop)
+    }
+  })
+}
+
+export const autorun = <T extends ObjectTree>(
+  stateTree: T,
+  callback: (observable: T) => unknown
+) => {
+  const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
+  const selectorTree = castSelectorManager.getSelectorTree(stateTree)
+
+  let currentPointers: SelectorTreeBranch[] = []
+
+  const callbackWithCleanupOfCurrentPointers = () => {
+    currentPointers.forEach((pointer) => {
+      removeSelectorFromTree(pointer, callbackWithCleanupOfCurrentPointers)
+    })
+    currentPointers = []
+    const proxyTree = makeAutoRunProxy(
+      stateTree,
+      [],
+      selectorTree,
+      currentPointers,
+      callbackWithCleanupOfCurrentPointers
+    ) as T
+    callback(proxyTree)
+  }
+
+  callbackWithCleanupOfCurrentPointers()
 }
 
 /**
@@ -683,7 +781,7 @@ class StateTreeSelectorsManager<
   }
 }
 
-const selectorsManager = new StateTreeSelectorsManager()
+export const selectorsManager = new StateTreeSelectorsManager()
 export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
 export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(

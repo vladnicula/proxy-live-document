@@ -79,3 +79,11 @@ export const getRefDescedents = (
     return refs.length ? refs : null
 }
 
+export const countSelectorsInTree = (pointerRef: SelectorTreeBranch) => {
+    const { subs, children } = pointerRef
+    const childrenCount = Object.values(children ?? {}).reduce((acc, child) => {
+        acc += countSelectorsInTree(child)
+        return acc
+    }, 0)
+    return (subs?.length ?? 0) + childrenCount
+}

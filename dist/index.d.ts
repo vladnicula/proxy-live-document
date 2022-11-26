@@ -37,6 +37,7 @@ export declare class MutationsManager {
     mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown): JSONPatchEnhanced[] | undefined;
 }
 export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[] | undefined;
+export declare const autorun: <T extends object>(stateTree: T, callback: (observable: T) => unknown) => void;
 /**
  * When working with domain objects, it's probably best to have a
  * method that serializes them so we can 'snapshot' how they origianlly
@@ -87,6 +88,12 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     has<K extends keyof T>(target: T, key: K): boolean;
 }
 export declare const pathMatchesSource: (source: string[], target: string[]) => boolean;
+declare class StateTreeSelectorsManager<T extends ObjectTree> {
+    selectorTrees: WeakMap<T, SelectorTreeBranch>;
+    getSelectorTree(stateTree: T): SelectorTreeBranch;
+    runSelectorPointers(stateTree: T, selectorPointers: SelectorTreeBranch[], combinedPatches: JSONPatchEnhanced[]): void;
+}
+export declare const selectorsManager: StateTreeSelectorsManager<object>;
 export declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
 export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => {
     reshape: () => never;
