@@ -413,10 +413,13 @@ export const autorun = <T extends ObjectTree>(
 
   let currentPointers: SelectorTreeBranch[] = []
 
-  const callbackWithCleanupOfCurrentPointers = () => {
+  const cleanup = () => {
     currentPointers.forEach((pointer) => {
       removeSelectorFromTree(pointer, callbackWithCleanupOfCurrentPointers)
     })
+  }
+  const callbackWithCleanupOfCurrentPointers = () => {
+    cleanup()
     currentPointers = []
     const proxyTree = makeAutoRunProxy(
       stateTree,
@@ -429,6 +432,8 @@ export const autorun = <T extends ObjectTree>(
   }
 
   callbackWithCleanupOfCurrentPointers()
+
+  return cleanup
 }
 
 /**

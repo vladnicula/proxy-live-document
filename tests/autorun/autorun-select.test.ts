@@ -162,7 +162,7 @@ describe('autorun', () => {
 
   })
 
-  it.only("correctly cleans up all selectors on each run", () => {
+  it("correctly cleans up all selectors on each run", () => {
     const stateObject = {
         count: 32 
     }
@@ -214,27 +214,57 @@ describe('autorun', () => {
         }
     })
 
-    expect(countSelectorsInTree(selectorTree)).toBe(2)
+    expect(countSelectorsInTree(selectorTree)).toBe(4)
 
     mutate(stateObject, (state) => {
         state.nodes[2].title = 'People'
     })
 
 
-    expect(countSelectorsInTree(selectorTree)).toBe(2)
+    expect(countSelectorsInTree(selectorTree)).toBe(4)
 
     mutate(stateObject, (state) => {
         state.nodes[1].title = 'What is up '
     })
 
-    expect(countSelectorsInTree(selectorTree)).toBe(2)
+    expect(countSelectorsInTree(selectorTree)).toBe(4)
 
     mutate(stateObject, (state) => {
         state.nodes[1].title = 'Howdy '
         state.toggle = true
     })
 
-    expect(countSelectorsInTree(selectorTree)).toBe(2)
+    expect(countSelectorsInTree(selectorTree)).toBe(4)
+  })
+
+  it("can clean up autorun", () => {
+    const stateObject = {
+        count: 32 
+    }
+
+    const autorunFn = vi.fn()
+
+    const unsub = autorun(stateObject, (state) => {
+        autorunFn()
+        const x = state.count
+        // x does not need to do anything
+    }) 
+
+    expect(autorunFn).toHaveBeenCalledTimes(1)
+
+    mutate(stateObject, (state) => {
+        state.count += 1
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(2)
+    unsub()
+    expect(autorunFn).toHaveBeenCalledTimes(2)
+
+    mutate(stateObject, (state) => {
+        state.count += 1
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(2)
   })
 
 })
