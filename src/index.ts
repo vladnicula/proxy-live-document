@@ -21,21 +21,6 @@ export type JSONPatchEnhanced = JSONPatch & {
   pathArray: string[],
 }
 
-/**
- * Was used to apply changes in the mutation function after all the operatoins finished.
- * I changed that to allow writing immediatly in the mutation. Now, when a class instance
- * makes a change somewhere deep in the tree, the change happens immedtialy. I keep track
- * of it in the json patch operations and can reason about it later on. 
- * 
- * This will come in handy for real time colaboraiton when changes from the server will be
- * captured and handled by clients. 
- */
-export const applyInternalMutation = <T extends ObjectTree>(mutations: JSONPatchEnhanced[], stateTree: T) => {
-  mutations.forEach(mutation => {
-    applyJSONPatchOperation(mutation, stateTree)
-  })
-}
-
 export const combinedJSONPatches = (operations: JSONPatchEnhanced[]) => {
   const skipMap = new Map()
   for ( let i = 0; i < operations.length; i += 1 ) {
