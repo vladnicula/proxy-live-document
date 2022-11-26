@@ -277,7 +277,6 @@ export class MutationsManager {
 
     const combinedPatches = combinedJSONPatches(patch)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
-    // selectorsManager.processPatches(target, combinedPatches)
 
     this.mutationMaps.delete(target)
     this.mutationDirtyPaths.delete(target)
