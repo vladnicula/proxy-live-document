@@ -267,4 +267,28 @@ describe('autorun', () => {
     expect(autorunFn).toHaveBeenCalledTimes(2)
   })
 
+  it("has access to json patches when reacting", () => {
+    const stateObject = {
+        count: 32 
+    }
+
+    const autorunFn = vi.fn()
+
+    const unsub = autorun(stateObject, (state, patches) => {
+        autorunFn(state.count, patches)
+    }) 
+
+    expect(autorunFn).toHaveBeenCalledWith(stateObject.count, undefined)
+
+    const patches = mutate(stateObject, (state) => {
+        state.count += 1
+    })
+
+
+    expect(autorunFn).toHaveBeenCalledWith(stateObject.count, patches)
+
+    unsub()
+    
+  })
+
 })

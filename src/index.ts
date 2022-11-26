@@ -406,7 +406,7 @@ const makeAutoRunProxy = <T extends ObjectTree>(
 
 export const autorun = <T extends ObjectTree>(
   stateTree: T,
-  callback: (observable: T) => unknown
+  callback: (observable: T, patches?: JSONPatchEnhanced[]) => unknown
 ) => {
   const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
   const selectorTree = castSelectorManager.getSelectorTree(stateTree)
@@ -418,7 +418,7 @@ export const autorun = <T extends ObjectTree>(
       removeSelectorFromTree(pointer, callbackWithCleanupOfCurrentPointers)
     })
   }
-  const callbackWithCleanupOfCurrentPointers = () => {
+  const callbackWithCleanupOfCurrentPointers = (_state?: T, patches?: JSONPatchEnhanced[]) => {
     cleanup()
     currentPointers = []
     const proxyTree = makeAutoRunProxy(
@@ -428,7 +428,7 @@ export const autorun = <T extends ObjectTree>(
       currentPointers,
       callbackWithCleanupOfCurrentPointers
     ) as T
-    callback(proxyTree)
+    callback(proxyTree, patches)
   }
 
   callbackWithCleanupOfCurrentPointers()
