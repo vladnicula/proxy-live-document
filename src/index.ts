@@ -250,7 +250,7 @@ export class MutationsManager {
       return item.propName !== 'root'
     })
 
-    const patch = Array.from(dirtyPaths).reduce(
+    const patches = Array.from(dirtyPaths).reduce(
       (
         acc: JSONPatchEnhanced[],
         value,
@@ -275,7 +275,7 @@ export class MutationsManager {
     )
   
 
-    const combinedPatches = combinedJSONPatches(patch)
+    const combinedPatches = combinedJSONPatches(patches)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
 
     this.mutationMaps.delete(target)
