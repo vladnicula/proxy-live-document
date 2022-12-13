@@ -3,13 +3,13 @@ import { SeletorMappingBase } from ".";
 export interface SelectorTreeBranch {
     propName: string | number
     children?: Record<string, SelectorTreeBranch>
-    subs?: Array<SeletorMappingBase<any>>
+    subs?: Array<SeletorMappingBase<any, any>>
 }
 
 export const addSelectorToTree = (
     tree: SelectorTreeBranch,
     pathArray: (string|number)[],
-    fn: SeletorMappingBase<any>
+    fn: SeletorMappingBase<any, any>
 ) => {
     let currentPathInTree = tree
     let currentPathInArray = [...pathArray]
@@ -28,7 +28,7 @@ export const addSelectorToTree = (
 
 export const removeSelectorFromTree = (
     pointerRef: SelectorTreeBranch,
-    fn: SeletorMappingBase<any>
+    fn: SeletorMappingBase<any, any>
 ) => {
     if ( !pointerRef.subs ) {
         return false
@@ -79,3 +79,13 @@ export const getRefDescedents = (
     return refs.length ? refs : null
 }
 
+
+export const getAllSubsOfSubtree = (pointers: SelectorTreeBranch[]) => {
+    const subs = new Set<SeletorMappingBase<any, any>>()
+    const subsAdd = subs.add.bind(subs)
+    for ( let i = 0; i < pointers.length; i += 1 ) {
+        pointers[i].subs?.forEach(subsAdd)
+        getAllSubsOfSubtree(Object.values(pointers[i].children ?? {})).forEach(subsAdd)        
+    }
+    return subs
+}
