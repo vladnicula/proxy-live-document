@@ -87,10 +87,10 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     has<K extends keyof T>(target: T, key: K): boolean;
 }
 export declare const pathMatchesSource: (source: string[], target: string[]) => boolean;
-export declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
-export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => {
+export declare type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K;
+export declare const select: <T extends object, K, MP extends SeletorMappingBase<T, K>>(stateTree: T, selectors: string[], mappingFn: MP) => {
     reshape: () => never;
-    observe: (fn: (input: unknown) => unknown) => () => void;
+    observe: (fn: (input: K) => unknown) => () => void;
     dispose: () => void;
 };
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;

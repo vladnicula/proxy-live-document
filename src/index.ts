@@ -247,24 +247,15 @@ export class MutationsManager {
   }
 
   commit (target: ObjectTree) {
+    // const preCommitStart = performance.now()
     const dirtyPaths = this.mutationDirtyPaths.get(target) 
     if ( !dirtyPaths ) {
       return []
     }
 
-    const selectorPaths =  Array.from(dirtyPaths).reduce((
-      acc, item
-    ) => {
-      const { writeSelectorPointerArray } = item
-      acc.push(...writeSelectorPointerArray)
-      return acc
-    }, [] as SelectorTreeBranch[])
+    const dirtyPathsAsArray = Array.from(dirtyPaths)
 
-    const uniqueSelectorPaths = [...new Set(selectorPaths)].filter((item) => {
-      return item.propName !== 'root'
-    })
-
-    const patch = Array.from(dirtyPaths).reduce(
+    const patches = dirtyPathsAsArray.reduce(
       (
         acc: JSONPatchEnhanced[],
         value,
@@ -289,9 +280,25 @@ export class MutationsManager {
     )
   
 
-    const combinedPatches = combinedJSONPatches(patch)
+    const combinedPatches = combinedJSONPatches(patches)
+
+    const uniqueSelectorPaths = dirtyPathsAsArray.reduce((
+      acc, item
+    ) => {
+      const { writeSelectorPointerArray } = item
+
+      writeSelectorPointerArray
+        .filter((item) => {
+          return item.propName !== 'root'
+        })
+        .forEach(item => acc.add(item))
+
+      return acc
+    }, new Set() as Set<SelectorTreeBranch>)
+
+    // const preCommitEnd = performance.now()
+    // console.log(`before the runSelectorPointer`, preCommitEnd - preCommitStart)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
-    // selectorsManager.processPatches(target, combinedPatches)
 
     this.mutationMaps.delete(target)
     this.mutationDirtyPaths.delete(target)
@@ -655,51 +662,52 @@ class StateTreeSelectorsManager<
 
   runSelectorPointers(
     stateTree: T, 
-    selectorPointers: SelectorTreeBranch[],
+    selectorPointers: Set<SelectorTreeBranch>,
     combinedPatches: JSONPatchEnhanced[]
   ) {
-    const calledFunctions = new Set<Function>()
 
-    const callSelector = (sub: SeletorMappingBase<any>) => {
-      if ( calledFunctions.has(sub) ) {
-        return
-      }
-      // console.log(`running`, sub.toString())
-      calledFunctions.add(sub)
+    const uniqueSelectorFunctions = new Set<SeletorMappingBase<any, any>>()
+
+    const callSelector = (sub: SeletorMappingBase<T, unknown>) => {
       sub(stateTree, combinedPatches)
     }
+
+    const addToSet = uniqueSelectorFunctions.add.bind(uniqueSelectorFunctions)
 
     const callSelectorOnLayerThenChildren = (layerPointers: SelectorTreeBranch[]) => {
       layerPointers.forEach((layerPointer) => {
         const { subs, children } = layerPointer
-        subs?.forEach(callSelector)
+        subs?.forEach(addToSet)
         if ( children ) {
           callSelectorOnLayerThenChildren(Object.values(children))
         }
       })
     }
 
-    callSelectorOnLayerThenChildren(selectorPointers)
+    callSelectorOnLayerThenChildren(selectorPointers as unknown as SelectorTreeBranch[])
+
+    uniqueSelectorFunctions.forEach(callSelector)
   }
 }
 
 const selectorsManager = new StateTreeSelectorsManager()
-export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
+export type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K
 
-export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
+export const select = <T extends ObjectTree, K, MP extends SeletorMappingBase<T, K>>(
   stateTree: T, 
   selectors: string[],
   mappingFn: MP
 ) => {
-  
   const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
 
   const selectorTree = castSelectorManager.getSelectorTree(stateTree)
-  const observersSet = new Set<(input: ReturnType<SeletorMappingBase<T>>) => unknown>()
-  const selectorWithObservers: SeletorMappingBase<any> = (...args) => {
+  const observersSet = new Set<(input: ReturnType<SeletorMappingBase<T, K>>) => unknown>()
+  const selectorWithObservers: SeletorMappingBase<T, K> = (...args) => {
     const value = mappingFn(...args)
     observersSet.forEach(obs => obs(value))
+    return value
   }
+  
   const pointers = selectors.map((selector) => {
     return addSelectorToTree(
       selectorTree,
@@ -712,7 +720,7 @@ export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
     reshape: () => {
       throw new Error(`Reshape method is no longer supported`)
     },
-    observe: (fn: (input: ReturnType<SeletorMappingBase<T>>) => unknown) => {
+    observe: (fn: (input: ReturnType<SeletorMappingBase<T, K>>) => unknown) => {
       observersSet.add(fn)
       return () => {
         observersSet.delete(fn)
@@ -722,7 +730,7 @@ export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
       for (const pointer of pointers) {
         removeSelectorFromTree(
           pointer,
-          mappingFn
+          selectorWithObservers
         )
       }
     }
