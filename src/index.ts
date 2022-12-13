@@ -253,14 +253,12 @@ export class MutationsManager {
       return []
     }
 
-    const dirtyPathsAsArray = Array.from(dirtyPaths)
-
-    const patches = dirtyPathsAsArray.reduce(
+    const [allDistinctPatches, uniqueSelectorPaths] = Array.from(dirtyPaths).reduce(
       (
-        acc: JSONPatchEnhanced[],
+        [patches, selectorPointers],
         value,
       ) => {
-        const { pathArray: path, ops } = value
+        const { pathArray: path, ops, writeSelectorPointerArray } = value
         const sourcePath = path.length ? `/${path.join('/')}` : ''
         for ( let i = 0; i < ops.length; i += 1 ) {
           const op = ops[i] 
@@ -268,36 +266,29 @@ export class MutationsManager {
           if ( old === value ) {
             continue
           }
-          acc.push({
+          patches.push({
             ...op,
             path: `${sourcePath}/${op.path}`,
             pathArray: [...path, op.path]
           })
         }
-        return acc
+
+        writeSelectorPointerArray
+          .filter((item) => {
+            return item.propName !== 'root'
+          })
+          .forEach(item => selectorPointers.add(item))
+
+        return [patches, selectorPointers]
       }, 
-      []
+      [[], new Set()] as [
+        JSONPatchEnhanced[],
+        Set<SelectorTreeBranch>
+      ]
     )
-  
 
-    const combinedPatches = combinedJSONPatches(patches)
+    const combinedPatches = combinedJSONPatches(allDistinctPatches)
 
-    const uniqueSelectorPaths = dirtyPathsAsArray.reduce((
-      acc, item
-    ) => {
-      const { writeSelectorPointerArray } = item
-
-      writeSelectorPointerArray
-        .filter((item) => {
-          return item.propName !== 'root'
-        })
-        .forEach(item => acc.add(item))
-
-      return acc
-    }, new Set() as Set<SelectorTreeBranch>)
-
-    // const preCommitEnd = performance.now()
-    // console.log(`before the runSelectorPointer`, preCommitEnd - preCommitStart)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
 
     this.mutationMaps.delete(target)
