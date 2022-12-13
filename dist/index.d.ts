@@ -13,16 +13,6 @@ declare type JSONPatch = {
 export declare type JSONPatchEnhanced = JSONPatch & {
     pathArray: string[];
 };
-/**
- * Was used to apply changes in the mutation function after all the operatoins finished.
- * I changed that to allow writing immediatly in the mutation. Now, when a class instance
- * makes a change somewhere deep in the tree, the change happens immedtialy. I keep track
- * of it in the json patch operations and can reason about it later on.
- *
- * This will come in handy for real time colaboraiton when changes from the server will be
- * captured and handled by clients.
- */
-export declare const applyInternalMutation: <T extends object>(mutations: JSONPatchEnhanced[], stateTree: T) => void;
 export declare const combinedJSONPatches: (operations: JSONPatchEnhanced[]) => JSONPatchEnhanced[];
 export declare const applyJSONPatchOperation: <T extends object>(operation: JSONPatchEnhanced, stateTree: T) => void;
 export declare const mutateFromPatches: <T extends object>(stateTree: T, patches: JSONPatchEnhanced[]) => void;
@@ -37,6 +27,7 @@ export declare class MutationsManager {
     mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown): JSONPatchEnhanced[] | undefined;
 }
 export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[] | undefined;
+export declare const autorun: <T extends object>(stateTree: T, callback: (observable: T, patches?: JSONPatchEnhanced[] | undefined) => unknown) => () => void;
 /**
  * When working with domain objects, it's probably best to have a
  * method that serializes them so we can 'snapshot' how they origianlly
@@ -87,6 +78,12 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     has<K extends keyof T>(target: T, key: K): boolean;
 }
 export declare const pathMatchesSource: (source: string[], target: string[]) => boolean;
+export declare class StateTreeSelectorsManager<T extends ObjectTree> {
+    selectorTrees: WeakMap<T, SelectorTreeBranch>;
+    getSelectorTree(stateTree: T): SelectorTreeBranch;
+    runSelectorPointers(stateTree: T, selectorPointers: Set<SelectorTreeBranch>, combinedPatches: JSONPatchEnhanced[]): void;
+}
+export declare const selectorsManager: StateTreeSelectorsManager<object>;
 export declare type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K;
 export declare const select: <T extends object, K, MP extends SeletorMappingBase<T, K>>(stateTree: T, selectors: string[], mappingFn: MP) => {
     reshape: () => never;

@@ -1,5 +1,6 @@
 import { ProxyCache } from "./proxy-cache"
 import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
+import { isObject } from "./utils/isObject"
 
 export type ObjectTree = object
 
@@ -18,21 +19,6 @@ type JSONPatch = {
 
 export type JSONPatchEnhanced = JSONPatch & {
   pathArray: string[],
-}
-
-/**
- * Was used to apply changes in the mutation function after all the operatoins finished.
- * I changed that to allow writing immediatly in the mutation. Now, when a class instance
- * makes a change somewhere deep in the tree, the change happens immedtialy. I keep track
- * of it in the json patch operations and can reason about it later on. 
- * 
- * This will come in handy for real time colaboraiton when changes from the server will be
- * captured and handled by clients. 
- */
-export const applyInternalMutation = <T extends ObjectTree>(mutations: JSONPatchEnhanced[], stateTree: T) => {
-  mutations.forEach(mutation => {
-    applyJSONPatchOperation(mutation, stateTree)
-  })
 }
 
 export const combinedJSONPatches = (operations: JSONPatchEnhanced[]) => {
@@ -333,6 +319,108 @@ export const mutate = <T extends ObjectTree>(
   callback: (mutable: T) => unknown
 ) => {
   return mutationsManager.mutate(stateTree, callback)
+}
+
+const makeAutoRunProxy = <T extends ObjectTree>(
+  stateTree: T, 
+  path: string[],
+  selectorTree: SelectorTreeBranch,
+  currentPointers: SelectorTreeBranch[],
+  callbackWithCleanupOfCurrentPointers: () => void
+): object => {
+  return new Proxy(stateTree, {
+    get: (target, prop) => {
+      if ( typeof prop === 'symbol' && prop === WatcherProxy ) {
+        return true
+      }
+      if (typeof prop === "symbol" || prop === 'hasOwnProperty') {
+        return Reflect.get(target, prop);
+      }
+
+      const protoDesc = Object.getOwnPropertyDescriptor(
+        target.constructor.prototype,
+        prop
+      );
+
+      if ( protoDesc?.get ) {
+        return protoDesc.get.call(
+          makeAutoRunProxy(
+            stateTree,
+            path,
+            selectorTree,
+            currentPointers,
+            callbackWithCleanupOfCurrentPointers
+          )
+        )
+      } else {
+        const subEntity = target[prop as keyof typeof target]
+        // we add a selector entity here
+        currentPointers.push(addSelectorToTree(
+          selectorTree,
+          [...path, prop],
+          callbackWithCleanupOfCurrentPointers,
+        ))
+        if (isObject(subEntity)) {
+          return makeAutoRunProxy(
+            subEntity,
+            [...path, prop] as string[],
+            selectorTree,
+            currentPointers,
+            callbackWithCleanupOfCurrentPointers
+          )
+        }
+        return subEntity
+      }
+
+    },
+
+    /**
+     * Proxy trap for Object.getOwnPropertyDescriptor()
+     * Used to check if we are using a proxy that is
+     * intended for usage in the autorun or not
+     */
+    getOwnPropertyDescriptor(target, prop) {
+      if ( prop === WatcherProxy ) {
+        return {
+          configurable: true,
+          value: true
+        }
+      }
+      return Reflect.getOwnPropertyDescriptor(target, prop)
+    }
+  })
+}
+
+export const autorun = <T extends ObjectTree>(
+  stateTree: T,
+  callback: (observable: T, patches?: JSONPatchEnhanced[]) => unknown
+) => {
+  const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
+  const selectorTree = castSelectorManager.getSelectorTree(stateTree)
+
+  let currentPointers: SelectorTreeBranch[] = []
+
+  const cleanup = () => {
+    currentPointers.forEach((pointer) => {
+      removeSelectorFromTree(pointer, callbackWithCleanupOfCurrentPointers)
+    })
+  }
+  const callbackWithCleanupOfCurrentPointers = (_state?: T, patches?: JSONPatchEnhanced[]) => {
+    cleanup()
+    currentPointers = []
+    const proxyTree = makeAutoRunProxy(
+      stateTree,
+      [],
+      selectorTree,
+      currentPointers,
+      callbackWithCleanupOfCurrentPointers
+    ) as T
+    callback(proxyTree, patches)
+  }
+
+  callbackWithCleanupOfCurrentPointers()
+
+  return cleanup
 }
 
 /**
