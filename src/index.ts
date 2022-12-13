@@ -749,9 +749,9 @@ export class StateTreeSelectorsManager<
     combinedPatches: JSONPatchEnhanced[]
   ) {
 
-    const uniqueSelectorFunctions = new Set<SeletorMappingBase<any, any>>()
+    const uniqueSelectorFunctions = new Set<SeletorMappingBase<any>>()
 
-    const callSelector = (sub: SeletorMappingBase<T, unknown>) => {
+    const callSelector = (sub: SeletorMappingBase<T>) => {
       sub(stateTree, combinedPatches)
     }
 
@@ -774,9 +774,9 @@ export class StateTreeSelectorsManager<
 }
 
 export const selectorsManager = new StateTreeSelectorsManager()
-export type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K
+export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
-export const select = <T extends ObjectTree, K, MP extends SeletorMappingBase<T, K>>(
+export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
   stateTree: T, 
   selectors: string[],
   mappingFn: MP
@@ -784,10 +784,10 @@ export const select = <T extends ObjectTree, K, MP extends SeletorMappingBase<T,
   const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
 
   const selectorTree = castSelectorManager.getSelectorTree(stateTree)
-  const observersSet = new Set<(input: ReturnType<SeletorMappingBase<T, K>>) => unknown>()
-  const selectorWithObservers: SeletorMappingBase<T, K> = (...args) => {
+  const observersSet = new Set<(input: ReturnType<MP>) => unknown>()
+  const selectorWithObservers: SeletorMappingBase<T> = (...args) => {
     const value = mappingFn(...args)
-    observersSet.forEach(obs => obs(value))
+    observersSet.forEach(obs => obs(value as ReturnType<MP>))
     return value
   }
   
@@ -803,7 +803,7 @@ export const select = <T extends ObjectTree, K, MP extends SeletorMappingBase<T,
     reshape: () => {
       throw new Error(`Reshape method is no longer supported`)
     },
-    observe: (fn: (input: ReturnType<SeletorMappingBase<T, K>>) => unknown) => {
+    observe: (fn: (input: ReturnType<MP>) => unknown) => {
       observersSet.add(fn)
       return () => {
         observersSet.delete(fn)

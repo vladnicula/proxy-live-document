@@ -84,10 +84,10 @@ export declare class StateTreeSelectorsManager<T extends ObjectTree> {
     runSelectorPointers(stateTree: T, selectorPointers: Set<SelectorTreeBranch>, combinedPatches: JSONPatchEnhanced[]): void;
 }
 export declare const selectorsManager: StateTreeSelectorsManager<object>;
-export declare type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K;
-export declare const select: <T extends object, K, MP extends SeletorMappingBase<T, K>>(stateTree: T, selectors: string[], mappingFn: MP) => {
+export declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
+export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => {
     reshape: () => never;
-    observe: (fn: (input: K) => unknown) => () => void;
+    observe: (fn: (input: ReturnType<MP>) => unknown) => () => void;
     dispose: () => void;
 };
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
