@@ -238,23 +238,7 @@ export class MutationsManager {
       return []
     }
 
-<<<<<<< HEAD
-    const selectorPaths =  Array.from(dirtyPaths).reduce((
-      acc, item
-    ) => {
-      const { writeSelectorPointerArray } = item
-      acc.push(...writeSelectorPointerArray)
-      return acc
-    }, [] as SelectorTreeBranch[])
-
-    const uniqueSelectorPaths = [...new Set(selectorPaths)].filter((item) => {
-      return item.propName !== 'root'
-    })
-
-    const patches = Array.from(dirtyPaths).reduce(
-=======
     const [allDistinctPatches, uniqueSelectorPaths] = Array.from(dirtyPaths).reduce(
->>>>>>> @{-1}
       (
         [patches, selectorPointers],
         value,
@@ -277,9 +261,6 @@ export class MutationsManager {
             pathArray: [...pathArray, op.path]
           })
 
-<<<<<<< HEAD
-    const combinedPatches = combinedJSONPatches(patches)
-=======
         }
 
         value.writeSelectorPointerArray
@@ -298,7 +279,6 @@ export class MutationsManager {
 
     const combinedPatches = combinedJSONPatches(allDistinctPatches)
 
->>>>>>> @{-1}
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
 
     this.mutationMaps.delete(target)
@@ -794,11 +774,7 @@ export class StateTreeSelectorsManager<
 }
 
 export const selectorsManager = new StateTreeSelectorsManager()
-<<<<<<< HEAD
-export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
-=======
 export type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K
->>>>>>> @{-1}
 
 export const select = <T extends ObjectTree, K, MP extends SeletorMappingBase<T, K>>(
   stateTree: T, 
