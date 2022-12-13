@@ -269,7 +269,7 @@ export class MutationsManager {
           if ( old === value ) {
             continue
           }
-          
+
           patches.push({
             ...op,
             path: `${sourcePath}/${op.path}`,
@@ -639,7 +639,7 @@ const getSelectorPathArray = (selector:string) => {
   }
   return selector.split('/')
 }
-class StateTreeSelectorsManager<
+export class StateTreeSelectorsManager<
   T extends ObjectTree, 
 > {
   // TODO could be a global weak map, and have less
@@ -686,7 +686,7 @@ class StateTreeSelectorsManager<
   }
 }
 
-const selectorsManager = new StateTreeSelectorsManager()
+export const selectorsManager = new StateTreeSelectorsManager()
 export type SeletorMappingBase<T, K> = (s: T, patches: JSONPatchEnhanced[]) => K
 
 export const select = <T extends ObjectTree, K, MP extends SeletorMappingBase<T, K>>(

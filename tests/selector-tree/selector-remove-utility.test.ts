@@ -1,4 +1,5 @@
 import { describe, it, expect , vi} from 'vitest'
+import { select, selectorsManager, StateTreeSelectorsManager } from '../../src'
 
 import { addSelectorToTree, SelectorTreeBranch, removeSelectorFromTree } from '../../src/selector-map'
 
@@ -55,5 +56,16 @@ describe('Selector Utility: Remove', () => {
         expect(tree.children?.intermediary.children?.leaf1.subs).toContain(selectorFn1)
         expect(tree.children?.intermediary.children?.leaf1.subs).toHaveLength(1)
         
+    })
+
+    it("selector dispose correclty works using the removeSelectorFromTree", () => {
+        const meh = { something: 32 }
+        const selector = select(meh, ['/something'], () => {})
+        const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<any>)
+        const selectorTree = castSelectorManager.getSelectorTree(meh)
+
+        expect(selectorTree.children!['something'].subs).toHaveLength(1)
+        selector.dispose()
+        expect(selectorTree.children!['something'].subs).toHaveLength(0)
     })
 })
