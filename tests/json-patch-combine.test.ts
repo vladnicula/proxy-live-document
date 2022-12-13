@@ -1,5 +1,5 @@
 import merge from "lodash.merge"
-import { describe, it, expect , vi} from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import { combinedJSONPatches, mutate, JSONPatchEnhanced } from "../src"
 
@@ -58,7 +58,7 @@ describe('json patchs combine', () => {
     }])
   })
 
-  it('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2  ', () => {
+  it('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2', () => {
     const source: Record<string, string | Record<string, string>> = {}
 
     const changes = mutate(source, (modifiable) => {
