@@ -247,7 +247,6 @@ export class MutationsManager {
   }
 
   commit (target: ObjectTree) {
-    // const preCommitStart = performance.now()
     const dirtyPaths = this.mutationDirtyPaths.get(target) 
     if ( !dirtyPaths ) {
       return []

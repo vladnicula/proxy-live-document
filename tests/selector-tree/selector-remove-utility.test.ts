@@ -1,7 +1,7 @@
 import { describe, it, expect , vi} from 'vitest'
 import { select, selectorsManager, StateTreeSelectorsManager } from '../../src'
 
-import { addSelectorToTree, SelectorTreeBranch, removeSelectorFromTree } from '../../src/selector-map'
+import { addSelectorToTree, SelectorTreeBranch, removeSelectorFromTree, getAllSubsOfSubtree } from '../../src/selector-map'
 
 describe('Selector Utility: Remove', () => {
 
@@ -64,8 +64,8 @@ describe('Selector Utility: Remove', () => {
         const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<any>)
         const selectorTree = castSelectorManager.getSelectorTree(meh)
 
-        expect(selectorTree.children!['something'].subs).toHaveLength(1)
+        expect(getAllSubsOfSubtree([selectorTree])).toHaveLength(1)
         selector.dispose()
-        expect(selectorTree.children!['something'].subs).toHaveLength(0)
+        expect(getAllSubsOfSubtree([selectorTree])).toHaveLength(0)
     })
 })
