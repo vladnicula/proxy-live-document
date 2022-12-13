@@ -258,22 +258,27 @@ export class MutationsManager {
         [patches, selectorPointers],
         value,
       ) => {
-        const { pathArray: path, ops, writeSelectorPointerArray } = value
-        const sourcePath = path.length ? `/${path.join('/')}` : ''
+
+        const { pathArray, ops } = value
+        const sourcePath = pathArray.length ? `/${pathArray.join('/')}` : ''
         for ( let i = 0; i < ops.length; i += 1 ) {
+
           const op = ops[i] 
           const { old, value } = op
+
           if ( old === value ) {
             continue
           }
+          
           patches.push({
             ...op,
             path: `${sourcePath}/${op.path}`,
-            pathArray: [...path, op.path]
+            pathArray: [...pathArray, op.path]
           })
+
         }
 
-        writeSelectorPointerArray
+        value.writeSelectorPointerArray
           .filter((item) => {
             return item.propName !== 'root'
           })
