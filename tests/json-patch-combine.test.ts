@@ -197,14 +197,28 @@ describe('json patchs combine', () => {
 
   })
 
+  it('Delete ignores newly added entiteis under it', () => {
+    const obj = {
+      abc: { leve1: {
+        field: 5
+      }, somethingElse: 32 },
+    } as Record<string, any>
+
+    const patches = mutate(obj, (state) => {
+      state.abc.leve2 = { altceva: -1000 }
+      delete state.abc
+    })!
+
+    // console.log(patches)
+    expect(patches[0].op).toEqual('remove')
+    expect(patches[0].path).toEqual('/abc')
+    expect(patches[0].old).toEqual({
+       leve1: {
+        field: 5
+      }, 
+      somethingElse: 32  
+    })
+  })
+
 })
 
-export interface JSONPatchTreeNode {
-  old?: unknown,
-  value?: unknown,
-  // root of tree has key null
-  key: null | string,
-  // root of tree has parent null
-  parent: null | JSONPatchTreeNode,
-  children?: Record<string, JSONPatchTreeNode>
-}

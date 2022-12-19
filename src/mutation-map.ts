@@ -313,18 +313,60 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
             ;(pointerToObjectToModify as Record<string, unknown>)[mutationNode.k.toString()] = mutationNode.old
             // mutationNode.o = targetNodeToReceiveOldValue
         // }
+
+        // if this child has an operation, we can remove it, because the
+        // old value from it was asimilated into the ancestor that has 
+        // an operation
+        if ( 'op' in mutationNode ) {
+            delete (mutationNode as any).op
+            delete (mutationNode as any).new
+            delete (mutationNode as any).old
+        }
+
     }
 
-    // if this child has an operation, we can remove it, because the
-    // old value from it was asimilated into the ancestor that has 
-    // an operation
+    // if we found a child that was added
+    if ( 'op' in mutationNode && mutationNode.op === 'add' ) {
+
+        // we might need to remove it from an ancestor that was
+        // deleted
+        // TODO this could be optimised and only checked in the parent
+        const ownerInfo = getParentWithOperation(mutationNode)
+        if ( !ownerInfo ) {
+            throw new Error('We tried to merge a subtree of mutation but there was no parent with an old value above: Not sure if error')
+        }
+        const [targetNodeToReceiveOldValue, path] = ownerInfo
+
+        if ('op' in targetNodeToReceiveOldValue && targetNodeToReceiveOldValue.op === 'remove' ) {
+            let pointerToObjectToModify = targetNodeToReceiveOldValue.old
+            path.pop()
+            path.forEach((key) => {
+                if ( !isObject(pointerToObjectToModify) ) {
+                    throw new Error(`We tried to merge two old values, but the new place at ${path.join(', ')} encountered a non object at first encounter of the key ${key}`)
+                }
+                if ( key in pointerToObjectToModify ) {
+                    pointerToObjectToModify = (pointerToObjectToModify as Record<string, any>)[key]
+                }
+            })
+
+            delete (pointerToObjectToModify as Record<string, unknown>)[mutationNode.k.toString()]
+        }
+
+        // if this child has an operation, we can remove it, because the
+        // old value from it was asimilated into the ancestor that has 
+        // an operation
+        if ( 'op' in mutationNode ) {
+            delete (mutationNode as any).op
+            delete (mutationNode as any).new
+            delete (mutationNode as any).old
+        }
+    }
+    
     if ( 'op' in mutationNode ) {
         delete (mutationNode as any).op
         delete (mutationNode as any).new
         delete (mutationNode as any).old
     }
-
-    
 }
 
 
