@@ -1,4 +1,4 @@
-import { MutationTreeNode, NO_VALUE } from ".";
+import { JSONPatchEnhanced, MutationTreeNode, NO_VALUE } from ".";
 import { isObject } from "./utils/isObject";
 
 
@@ -70,7 +70,8 @@ export const createMutaitonInMutationTree = (
         // and are done with it
         } else {
             Object.assign(mutationNode, {
-                new: newValue
+                new: newValue,
+                op: mutationNode.op === 'remove' ? 'replace' : mutationNode.op
             })
         }
         return
@@ -130,9 +131,8 @@ export const createMutaitonInMutationTree = (
     }
 
     Object.assign(mutationNode, {
-        o: mutationNode,
         op,
-        d: true,
+        d: true, // TODO remove
         ...(oldValue !== NO_VALUE? {old: oldValue} : {}),
         ...(newValue !== NO_VALUE? {new: newValue} : {}),
     })
@@ -305,14 +305,14 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
 
         // if the key did not exist in the original object, we don't need to have a 
         // reference of the old value
-        if ( mutationNode.k in (pointerToObjectToModify as Record<string, unknown>)) {
+        // if ( mutationNode.k in (pointerToObjectToModify as Record<string, unknown>)) {
             // console.log("pointerToObjectToModify", reversedPath, pointerToObjectToModify, mutationNode.old);
             // write the old value from this node in the right place
             // from an ancestor. Note, there might be a need to pop
             // the first item in path. We will have ot check
             ;(pointerToObjectToModify as Record<string, unknown>)[mutationNode.k.toString()] = mutationNode.old
-            mutationNode.o = targetNodeToReceiveOldValue
-        }
+            // mutationNode.o = targetNodeToReceiveOldValue
+        // }
     }
 
     // if this child has an operation, we can remove it, because the
@@ -325,4 +325,32 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
     }
 
     
+}
+
+
+export const getPatchesFromMutationTree = (mutationNode: MutationTreeNode) => {
+    const patches: JSONPatchEnhanced[] = []
+    accumulatePatchesFromMutationTree(mutationNode, patches)
+    return patches
+}
+
+export const accumulatePatchesFromMutationTree = (mutationNode: MutationTreeNode, acc: JSONPatchEnhanced[], pathArray: string[] = []) => {
+    if ("op" in mutationNode ) {
+        acc.push({
+            op: mutationNode.op,
+            old: ('old' in mutationNode) ? mutationNode.old : undefined,
+            value: ('new' in mutationNode) ? mutationNode.new : undefined,
+            pathArray,
+            path: `/${pathArray.join('/')}`
+        })
+        return
+    }
+
+    if ( mutationNode.c ) {
+        Object.values(mutationNode.c).forEach((child) => {
+            accumulatePatchesFromMutationTree(child, acc, [...pathArray, child.k as string])
+        })
+        return
+    }
+
 }

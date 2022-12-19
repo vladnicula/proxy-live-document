@@ -1,4 +1,4 @@
-import { makeAndGetChildPointer } from "./mutation-map"
+import { createMutaitonInMutationTree, getPatchesFromMutationTree, makeAndGetChildPointer } from "./mutation-map"
 import { ProxyCache } from "./proxy-cache"
 import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
 import { isObject } from "./utils/isObject"
@@ -198,6 +198,7 @@ export class MutationsManager {
   mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
   mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>> = new Map()
   mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>> = new Map()
+  mutationChagnePointers: Map<ObjectTree, MutationTreeNode> = new Map()
 
   private getSubProxy = <T extends ObjectTree>(
     target: ObjectTree, 
@@ -248,6 +249,7 @@ export class MutationsManager {
       p: null,
       k: ''
     }
+    this.mutationChagnePointers.set(target, mutationPointer)
     const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
       target,
       selectorPointerArray: selectorPointers,
@@ -314,8 +316,9 @@ export class MutationsManager {
       ]
     )
 
-    const combinedPatches = combinedJSONPatches(allDistinctPatches)
-
+    
+    // const combinedPatches = combinedJSONPatches(allDistinctPatches)
+    const combinedPatches = getPatchesFromMutationTree(this.mutationChagnePointers.get(target)!)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
 
     this.mutationMaps.delete(target)
@@ -483,25 +486,25 @@ export interface MutationTreeNodeWithAdd {
 }
 
 export type MutationTreeNode = ( {} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
-  /** 
-   * dirty or not. If true, it meas at least one descedent (or self)
-   * has a change. This flag is useful when creating patches
-   * for syncronization because there are cases where a lot of reads
-   * happen in a mutation and no write is done, leaving a lot of
-   * branhces in the mutation tree that don't have any update and
-   * can safely be ignored when the patch creation algorithm runs.
-   */
-  d?: boolean
+  // /** 
+  //  * dirty or not. If true, it meas at least one descedent (or self)
+  //  * has a change. This flag is useful when creating patches
+  //  * for syncronization because there are cases where a lot of reads
+  //  * happen in a mutation and no write is done, leaving a lot of
+  //  * branhces in the mutation tree that don't have any update and
+  //  * can safely be ignored when the patch creation algorithm runs.
+  //  */
+  // d?: boolean
   k: string | number,
   p: null | MutationTreeNode
   /** the children of this node */
   c?: Record<string, MutationTreeNode>
 
-  /**
-   * If a different ancestor node is already
-   * containing this node's change.
-   */
-  o?: null | MutationTreeNode
+  // /**
+  //  * If a different ancestor node is already
+  //  * containing this node's change.
+  //  */
+  // o?: null | MutationTreeNode
 }
 
 
@@ -669,44 +672,6 @@ export class ProxyMutationObjectHandler<T extends object> {
 
     this.dirtyPaths.add(this)
 
-    /**
-     * NEW MUTATION ALGO
-     */
-
-
-    const childMutationPointer = makeAndGetChildPointer(
-      this.mutationNode,
-      prop as string | number // we don't have symbols, not sure how we would set a symbol
-    )
-
-    // are we making a change?
-    // changes happen when the prop exists in the target
-    if ( prop in target ) {
-      // if we set to null, undefined or false, we still "replace",
-      // we don't remove
-      Object.assign(childMutationPointer, {
-        op: "replace",
-        old: target[prop],
-        new: value
-      } as MutationTreeNodeWithReplace)
-    } else {
-      // are we adding?
-      // adding is when the prop in target is not true.
-      Object.assign(childMutationPointer, {
-        op: "add",
-        new: value
-      } as MutationTreeNodeWithAdd)
-    }
-
-    
-    if ( 'op' in this.mutationNode ) {
-      console.log("must merge nodes")
-    }
-
-    /**
-     * END NEW MUTATION ALGO
-     */
-
     // could "tick" right here and produce the derivates :) :-? 
     let opType: 'add' | 'replace' | 'remove' = 'add'
     if ( target[prop] ) {
@@ -755,6 +720,27 @@ export class ProxyMutationObjectHandler<T extends object> {
     if ( typeof opOriginal === 'object' && opOriginal !== null ) {
       opOriginal = {...opOriginal} as Partial<T>[K]
     }
+
+     /**
+     * NEW MUTATION ALGO
+     */
+
+
+     const childMutationPointer = makeAndGetChildPointer(
+      this.mutationNode,
+      prop as string | number // we don't have symbols, not sure how we would set a symbol
+    )
+
+    createMutaitonInMutationTree(
+      childMutationPointer,
+      // if prop exists in target, we replace, otherwise we spcify NO_VALUE
+      prop in target ? target[prop] : NO_VALUE,
+      opValue
+    )
+
+    /**
+     * END NEW MUTATION ALGO
+     */
     
     this.ops.push({
       op: opType,
@@ -785,6 +771,18 @@ export class ProxyMutationObjectHandler<T extends object> {
             return acc
           }, [])
         )
+
+        const childMutationPointer = makeAndGetChildPointer(
+          this.mutationNode,
+          prop as string | number // we don't have symbols, not sure how we would set a symbol
+        )
+
+        createMutaitonInMutationTree(
+          childMutationPointer,
+          target[prop],
+          NO_VALUE
+        )
+
         this.dirtyPaths.add(this)
         this.deleted[prop] = true
         
@@ -796,7 +794,7 @@ export class ProxyMutationObjectHandler<T extends object> {
         if ( typeof opOriginal === 'object' && opOriginal !== null ) {
           opOriginal = {...opOriginal} as Partial<T>[K & string]
         }
-
+        
         this.ops.push({
           op: 'remove',
           path: `${prop}`,

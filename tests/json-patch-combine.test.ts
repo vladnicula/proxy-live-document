@@ -86,8 +86,8 @@ describe('json patchs combine', () => {
       delete (modifiable.l1 as Record<string, string>).l2
     })
 
-    const combined = combinedJSONPatches(changes!)
-    expect(combined).toEqual([{
+    // const combined = combinedJSONPatches(changes!)
+    expect(changes).toEqual([{
       op: 'add',
       path: '/l1',
       pathArray: ['l1'],
@@ -133,17 +133,7 @@ describe('json patchs combine', () => {
       delete (modifiable.key2 as Record<string, Record<string, unknown>>).key21.key212
     })
 
-    const combined = combinedJSONPatches(changes!)
-    expect(combined).toEqual([{
-      op: 'add',
-      path: '/key2',
-      pathArray: ['key2'],
-      value: {
-        key21: {
-          key211: 'some value'
-        }
-      }
-    }])
+    // const combined = combinedJSONPatches(changes!)
     expect(source).toEqual({
       key1: {
         key11: 'value1',
@@ -155,6 +145,16 @@ describe('json patchs combine', () => {
         }
       }
     })
+    expect(changes).toEqual([{
+      op: 'add',
+      path: '/key2',
+      pathArray: ['key2'],
+      value: {
+        key21: {
+          key211: 'some value'
+        }
+      }
+    }])
   })
 
 
@@ -217,7 +217,7 @@ describe('json patchs combine', () => {
       delete state.x
     })!
 
-    console.log(patches)
+    // console.log(patches)
 
     expect(patches).toHaveLength(1)
     expect(patches[0].op).toEqual('remove')
@@ -252,7 +252,7 @@ describe('json patchs combine', () => {
       delete state.abc
     })!
   
-    expect(patches[0].op).toEqual('replace')
+    expect(patches[0].op).toEqual('remove')
     expect(patches[0].path).toEqual('/abc')
     expect(patches[0].old).toEqual({ field: 5, somethingElse: 32 })
   })
@@ -267,7 +267,7 @@ describe('json patchs combine', () => {
       delete state.abc
     })!
 
-    console.log(patches)
+    // console.log(patches)
     expect(patches[0].op).toEqual('remove')
     expect(patches[0].path).toEqual('/abc')
     expect(patches[0].old).toEqual({ field: 5, somethingElse: 32 })
@@ -363,47 +363,3 @@ function buildChangesTree(items: JSONPatchEnhanced[]): JSONPatchTreeNode {
   // Return root node
   return root;
 }
-
-describe.only("temp function", () => {
-  it('build tree', () => {
-    const internalValues = [
-      {
-        op: "replace",
-        path: "/abc/field",
-        old: 5,
-        value: 'something else',
-        pathArray: [
-          "abc",
-          "field",
-        ],
-      },
-      {
-        op: "replace",
-        path: "/abc/field",
-        old: 'something else',
-        value: 'another one',
-        pathArray: [
-          "abc",
-          "field",
-        ],
-      },
-      {
-        op: "remove",
-        path: "/abc",
-        old: {
-          somethingElse: 32,
-          field: "something else"
-        },
-        value: undefined,
-        pathArray: [
-          "abc",
-        ],
-      },
-    ] as JSONPatchEnhanced[]
-
-    const tree = buildChangesTree(internalValues)
-    console.log(findAncestorWithOldOrValue(tree.children?.['abc']?.children?.['field']))
-    expect(tree).toEqual({})
-
-  })
-})
