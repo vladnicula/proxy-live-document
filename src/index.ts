@@ -514,7 +514,7 @@ export class ProxyMutationObjectHandler<T extends object> {
 
       const subPropMutationPointer = makeAndGetChildPointer(
         this.mutationNode,
-        prop
+        prop as string | number
       )
 
       const entityProxy = this.proxyfyAccess(

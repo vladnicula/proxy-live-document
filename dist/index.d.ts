@@ -2,6 +2,7 @@ import { SelectorTreeBranch } from "./selector-map";
 export declare type ObjectTree = object;
 export declare type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>;
 export declare const Patcher: unique symbol;
+export declare const NO_VALUE: unique symbol;
 export declare const WatcherProxy: unique symbol;
 export declare const TargetRef: unique symbol;
 declare type JSONPatch = {
@@ -13,13 +14,13 @@ declare type JSONPatch = {
 export declare type JSONPatchEnhanced = JSONPatch & {
     pathArray: string[];
 };
-export declare const combinedJSONPatches: (operations: JSONPatchEnhanced[]) => JSONPatchEnhanced[];
 export declare const applyJSONPatchOperation: <T extends object>(operation: JSONPatchEnhanced, stateTree: T) => void;
 export declare const mutateFromPatches: <T extends object>(stateTree: T, patches: JSONPatchEnhanced[]) => void;
 export declare class MutationsManager {
     mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>>;
     mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>>;
     mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>>;
+    mutationChagnePointers: Map<ObjectTree, MutationTreeNode>;
     private getSubProxy;
     startMutation(target: ObjectTree): void;
     hasRoot(rootA: any): boolean;
@@ -28,6 +29,32 @@ export declare class MutationsManager {
 }
 export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[] | undefined;
 export declare const autorun: <T extends object>(stateTree: T, callback: (observable: T, patches?: JSONPatchEnhanced[] | undefined) => unknown) => () => void;
+export interface MutationTreeNodeWithReplace {
+    /** operation replace */
+    op: "replace";
+    /** replace has an old value, which might be falsy, but still exists */
+    old: unknown;
+    /** new value is again, probably falsy, but still exists */
+    new: unknown;
+}
+export interface MutationTreeNodeWithRemove {
+    /** operation remove old contains old value */
+    op: "remove";
+    /** old value ca be fasly, but still exists */
+    old: unknown;
+}
+export interface MutationTreeNodeWithAdd {
+    /** operation add only contains a new value */
+    op: "add";
+    /** new value is can be falsy, but still exists */
+    new: any;
+}
+export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
+    k: string | number;
+    p: null | MutationTreeNode;
+    /** the children of this node */
+    c?: Record<string, MutationTreeNode>;
+};
 /**
  * When working with domain objects, it's probably best to have a
  * method that serializes them so we can 'snapshot' how they origianlly
@@ -41,22 +68,27 @@ export declare abstract class IObservableDomain {
     abstract toJSON: () => Record<string, unknown>;
     abstract fromJSON: (input: Record<string, unknown>) => void;
 }
+declare type ProxyAccessFN<T = any> = (target: T, mutationPointer: MutationTreeNode, newPointers: SelectorTreeBranch[]) => T;
 export declare class ProxyMutationObjectHandler<T extends object> {
-    readonly pathArray: string[];
     readonly deleted: Record<string, boolean>;
     readonly original: Partial<T>;
     readonly targetRef: T;
-    readonly ops: JSONPatch[];
+    /**
+     * ops are the individual operations happening on this
+     * object. All the intermediary entities that would
+     * most probably dissapear with the new change.
+     */
     readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
-    readonly proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[]) => T;
+    readonly proxyfyAccess: ProxyAccessFN;
     readonly selectorPointerArray: Array<SelectorTreeBranch>;
     readonly writeSelectorPointerArray: Array<SelectorTreeBranch>;
+    mutationNode: MutationTreeNode;
     constructor(params: {
+        mutationNode: MutationTreeNode;
         target: T;
-        pathArray?: string[];
         selectorPointerArray: Array<SelectorTreeBranch>;
         dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
-        proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[]) => T;
+        proxyfyAccess: ProxyAccessFN;
     });
     get<K extends keyof T>(target: T, prop: K): any;
     set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;

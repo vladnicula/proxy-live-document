@@ -37,7 +37,7 @@ export const getParentWithOperation = (mutationNode: MutationTreeNode) => {
 }
 
 export const makeAndGetChildPointer = (mutationNode: MutationTreeNode, prop: string | number) => {
-    mutationNode.c ??= {}
+    mutationNode.c = mutationNode.c ?? {}
     
     if ( !mutationNode.c[prop] ) {
         mutationNode.c[prop] = {
