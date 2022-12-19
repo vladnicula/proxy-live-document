@@ -207,4 +207,203 @@ describe('json patchs combine', () => {
     expect(result[0]).toHaveProperty('op', 'replace')
   })
 
+  it("handles replace followed by remove as remove", () => {
+    const obj = {
+      x: 1
+    } as Record<string, any>
+
+    const patches = mutate(obj, (state) => {
+      state.x = 32
+      delete state.x
+    })!
+
+    console.log(patches)
+
+    expect(patches).toHaveLength(1)
+    expect(patches[0].op).toEqual('remove')
+    expect(patches[0].path).toEqual('/x')
+    expect(patches[0].old).toEqual(1)
+  })
+
+  it("handles remove followed by add as replace", () => {
+    const obj = {
+      x: 1
+    } as Record<string, any>
+
+    const patches = mutate(obj, (state) => {
+      delete state.x
+      state.x = 32
+    })!
+
+    expect(patches).toHaveLength(1)
+    expect(patches[0].op).toEqual('replace')
+    expect(patches[0].path).toEqual('/x')
+    expect(patches[0].old).toEqual(1)
+    expect(patches[0].value).toEqual(32)
+  })
+
+  it("handles two deletes on two levels of the same nested object as one delete with correct old source value", () => {
+    const obj = {
+      abc: { field: 5, somethingElse: 32 },
+    } as Record<string, any>
+
+    const patches = mutate(obj, (state) => {
+      delete state.abc.field
+      delete state.abc
+    })!
+  
+    expect(patches[0].op).toEqual('replace')
+    expect(patches[0].path).toEqual('/abc')
+    expect(patches[0].old).toEqual({ field: 5, somethingElse: 32 })
+  })
+
+  it('handles field update followed by remove with the old value from the removed object', () => {
+    const obj = {
+      abc: { field: 5, somethingElse: 32 },
+    } as Record<string, any>
+
+    const patches = mutate(obj, (state) => {
+      state.abc.field = 'different value'
+      delete state.abc
+    })!
+
+    console.log(patches)
+    expect(patches[0].op).toEqual('remove')
+    expect(patches[0].path).toEqual('/abc')
+    expect(patches[0].old).toEqual({ field: 5, somethingElse: 32 })
+
+  })
+
+})
+
+export interface JSONPatchTreeNode {
+  old?: unknown,
+  value?: unknown,
+  // root of tree has key null
+  key: null | string,
+  // root of tree has parent null
+  parent: null | JSONPatchTreeNode,
+  children?: Record<string, JSONPatchTreeNode>
+}
+
+const findAncestorWithOldOrValue = (node: JSONPatchTreeNode) => {
+  const subpath: string[] = []
+
+  while (node.parent) {
+    if ( node.key ) {
+      subpath.push(node.key)
+    } 
+    node = node.parent
+    if ( node.hasOwnProperty('old') || node.hasOwnProperty('value') ) {
+      break
+    }
+  }
+
+  if ( node ) {
+    return [
+      node, subpath.reverse()
+    ]
+  }
+}
+
+function buildChangesTree(items: JSONPatchEnhanced[]): JSONPatchTreeNode {
+  // Create root node
+  const root: JSONPatchTreeNode = {
+    key: null,
+    parent: null,
+  };
+
+  // Iterate through items
+  for (const item of items) {
+    let foundNode = false
+
+    // Split path into parts
+    const pathParts = item.pathArray;
+
+    // Start at root node
+    let currentNode = root;
+    let currentParent: null | JSONPatchTreeNode = null;
+
+    // Iterate through path parts
+    for (const pathPart of pathParts) {
+      
+      // Check if node for current path part exists
+      if (currentNode?.children?.[pathPart]) {
+        foundNode = true
+      }
+      else {
+        currentNode.children ??= {}
+        // Create node if it doesn't exist
+        currentNode.children[pathPart] = {
+          parent: currentParent,
+          key: pathPart
+        };
+      }
+
+      // Update current parent
+      currentParent = currentNode;
+
+      // Move to next node
+      currentNode = currentNode.children[pathPart];
+    }
+
+    // Set the old only if this is the first time we are modifing
+    // this path. Even if it is undefined, which is the case
+    // of the "add" operation where the "old" is nothing and 
+    // "value" is the new value.
+    if ( !foundNode ) {
+      currentNode.old = item.old
+    }
+
+    // allways set the value, regardless if item.value is falsy or not
+    currentNode.value = item.value;
+    currentNode.parent = currentParent;
+  }
+
+  // Return root node
+  return root;
+}
+
+describe.only("temp function", () => {
+  it('build tree', () => {
+    const internalValues = [
+      {
+        op: "replace",
+        path: "/abc/field",
+        old: 5,
+        value: 'something else',
+        pathArray: [
+          "abc",
+          "field",
+        ],
+      },
+      {
+        op: "replace",
+        path: "/abc/field",
+        old: 'something else',
+        value: 'another one',
+        pathArray: [
+          "abc",
+          "field",
+        ],
+      },
+      {
+        op: "remove",
+        path: "/abc",
+        old: {
+          somethingElse: 32,
+          field: "something else"
+        },
+        value: undefined,
+        pathArray: [
+          "abc",
+        ],
+      },
+    ] as JSONPatchEnhanced[]
+
+    const tree = buildChangesTree(internalValues)
+    console.log(findAncestorWithOldOrValue(tree.children?.['abc']?.children?.['field']))
+    expect(tree).toEqual({})
+
+  })
 })
