@@ -8,12 +8,9 @@ export type ObjectTree = object
 export type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 
 export const Patcher = Symbol('Patcher')
-// used to "set" a value with the intent of deleting.
-// if we want to "write" the intention of delete of an object
-// we will write with RemovedValue.
-export const REMOVE_VALUE = Symbol('RemovedValue')
-// use to "set" a new value. This NO_VALUE will be used
-// as the old value to indicate there was no old value
+// When we remove an entity, we set the new value to NO_VALUE
+// When we add an entity, we set the old value to NO_VALUE
+// This way, we have support for falsy values as real values
 export const NO_VALUE = Symbol('NoValue')
 export const WatcherProxy = Symbol('WatcherProxy')
 export const TargetRef = Symbol('TargetRef')
