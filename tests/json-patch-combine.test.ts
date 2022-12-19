@@ -1,62 +1,9 @@
 import merge from "lodash.merge"
 import { describe, it, expect } from 'vitest'
 
-import { combinedJSONPatches, mutate, JSONPatchEnhanced } from "../src"
+import { mutate, JSONPatchEnhanced } from "../src"
 
 describe('json patchs combine', () => {
-
-  it('correctly merges the same operations', () => {
-    const opration = {
-      op: 'add' as 'add',
-      path: 'subObject/key3',
-      value: 'value3 new value',
-      pathArray: [ 'subObject', 'key3' ]
-    }
-
-    const resultSet = combinedJSONPatches([
-      opration, {...opration}
-    ])
-
-    expect(resultSet).toHaveLength(1)
-  })
-
-
-  it('merges all operations of a subtree under an add operation', () => {
-    const ops =  [
-      {
-        op: 'add',
-        path: 'subObject/newPath',
-        old: undefined,
-        value: { key1: 'newPath value', key2: 'new path value 2', },
-        pathArray: [ 'subObject', 'newPath' ]
-      },
-      {
-        op: 'add',
-        path: 'subObject/newPath/key3',
-        old: undefined,
-        value: 'new path value 3',
-        pathArray: [ 'subObject', 'newPath', 'key3' ]
-      },
-      {
-        op: 'remove',
-        path: 'subObject/newPath/key2',
-        old: 'new path value 2',
-        value: undefined,
-        pathArray: [ 'subObject', 'newPath', 'key2' ]
-      }
-    ] as JSONPatchEnhanced[]
-
-    const mergedPatch = combinedJSONPatches(ops)
-
-    // todo also write a test with adds on deeper levels not on first level
-    expect(mergedPatch).toEqual([{
-      op: 'add',
-      path: 'subObject/newPath',
-      old: undefined,
-      value: { key1: 'newPath value', key3: 'new path value 3' },
-      pathArray: [ 'subObject', 'newPath' ]
-    }])
-  })
 
   it('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2', () => {
     const source: Record<string, string | Record<string, string>> = {}
@@ -107,8 +54,8 @@ describe('json patchs combine', () => {
       delete (modifiable.subObject as Record<string, string>).key3
     })
 
-    const combined = combinedJSONPatches(changes!)
-    expect(combined.length).toEqual(0)
+    // const combined = combinedJSONPatches(changes!)
+    expect(changes!.length).toEqual(0)
   })
 
   it('handles remove on deeper key of newly added object', () => {
@@ -181,30 +128,6 @@ describe('json patchs combine', () => {
     expect(source).toEqual({
       replaceMe: 'I replaced you'
     })
-  })
-
-
-  it("correclty handles a delete followed by a new assignment as a replace", () => {
-    const operations = [
-      {
-        op: 'remove' as const,
-        path: '/nodes/1',
-        old: {},
-        value: undefined,
-        pathArray: [ 'nodes', '1' ]
-      },
-      {
-        op: 'add' as const,
-        path: '/nodes/1',
-        old: {},
-        value: { new: 'stuff' },
-        pathArray: [ 'nodes', '1' ]
-      }
-    ]
-
-    const result = combinedJSONPatches(operations)
-    expect(result).toHaveLength(1)
-    expect(result[0]).toHaveProperty('op', 'replace')
   })
 
   it("handles replace followed by remove as remove", () => {
@@ -284,82 +207,4 @@ export interface JSONPatchTreeNode {
   // root of tree has parent null
   parent: null | JSONPatchTreeNode,
   children?: Record<string, JSONPatchTreeNode>
-}
-
-const findAncestorWithOldOrValue = (node: JSONPatchTreeNode) => {
-  const subpath: string[] = []
-
-  while (node.parent) {
-    if ( node.key ) {
-      subpath.push(node.key)
-    } 
-    node = node.parent
-    if ( node.hasOwnProperty('old') || node.hasOwnProperty('value') ) {
-      break
-    }
-  }
-
-  if ( node ) {
-    return [
-      node, subpath.reverse()
-    ]
-  }
-}
-
-function buildChangesTree(items: JSONPatchEnhanced[]): JSONPatchTreeNode {
-  // Create root node
-  const root: JSONPatchTreeNode = {
-    key: null,
-    parent: null,
-  };
-
-  // Iterate through items
-  for (const item of items) {
-    let foundNode = false
-
-    // Split path into parts
-    const pathParts = item.pathArray;
-
-    // Start at root node
-    let currentNode = root;
-    let currentParent: null | JSONPatchTreeNode = null;
-
-    // Iterate through path parts
-    for (const pathPart of pathParts) {
-      
-      // Check if node for current path part exists
-      if (currentNode?.children?.[pathPart]) {
-        foundNode = true
-      }
-      else {
-        currentNode.children ??= {}
-        // Create node if it doesn't exist
-        currentNode.children[pathPart] = {
-          parent: currentParent,
-          key: pathPart
-        };
-      }
-
-      // Update current parent
-      currentParent = currentNode;
-
-      // Move to next node
-      currentNode = currentNode.children[pathPart];
-    }
-
-    // Set the old only if this is the first time we are modifing
-    // this path. Even if it is undefined, which is the case
-    // of the "add" operation where the "old" is nothing and 
-    // "value" is the new value.
-    if ( !foundNode ) {
-      currentNode.old = item.old
-    }
-
-    // allways set the value, regardless if item.value is falsy or not
-    currentNode.value = item.value;
-    currentNode.parent = currentParent;
-  }
-
-  // Return root node
-  return root;
 }
