@@ -1,4 +1,4 @@
-import { createMutaitonInMutationTree, getPatchesFromMutationTree, makeAndGetChildPointer } from "./mutation-map"
+import { createMutaitonInMutationTree, getPatchesFromMutationTree, makeAndGetChildPointer, MutationTreeNode, NO_VALUE } from "./mutation-map"
 import { ProxyCache } from "./proxy-cache"
 import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
 import { isObject } from "./utils/isObject"
@@ -8,10 +8,6 @@ export type ObjectTree = object
 export type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>
 
 export const Patcher = Symbol('Patcher')
-// When we remove an entity, we set the new value to NO_VALUE
-// When we add an entity, we set the old value to NO_VALUE
-// This way, we have support for falsy values as real values
-export const NO_VALUE = Symbol('NoValue')
 export const WatcherProxy = Symbol('WatcherProxy')
 export const TargetRef = Symbol('TargetRef')
 
@@ -341,50 +337,6 @@ export const autorun = <T extends ObjectTree>(
   callbackWithCleanupOfCurrentPointers()
 
   return cleanup
-}
-export interface MutationTreeNodeWithReplace {
-  /** operation replace */
-  op: "replace",
-  /** replace has an old value, which might be falsy, but still exists */
-  old: unknown,
-  /** new value is again, probably falsy, but still exists */
-  new: unknown
-}
-
-export interface MutationTreeNodeWithRemove {
-   /** operation remove old contains old value */
-   op: "remove",
-   /** old value ca be fasly, but still exists */
-   old: unknown
-}
-
-export interface MutationTreeNodeWithAdd {
-  /** operation add only contains a new value */
-  op: "add",
-  /** new value is can be falsy, but still exists */
-  new: any
-}
-
-export type MutationTreeNode = ( {} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
-  // /** 
-  //  * dirty or not. If true, it meas at least one descedent (or self)
-  //  * has a change. This flag is useful when creating patches
-  //  * for syncronization because there are cases where a lot of reads
-  //  * happen in a mutation and no write is done, leaving a lot of
-  //  * branhces in the mutation tree that don't have any update and
-  //  * can safely be ignored when the patch creation algorithm runs.
-  //  */
-  // d?: boolean
-  k: string | number,
-  p: null | MutationTreeNode
-  /** the children of this node */
-  c?: Record<string, MutationTreeNode>
-
-  // /**
-  //  * If a different ancestor node is already
-  //  * containing this node's change.
-  //  */
-  // o?: null | MutationTreeNode
 }
 
 

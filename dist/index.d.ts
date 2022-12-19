@@ -1,8 +1,8 @@
+import { MutationTreeNode } from "./mutation-map";
 import { SelectorTreeBranch } from "./selector-map";
 export declare type ObjectTree = object;
 export declare type ProxyMapType<T extends ObjectTree> = WeakMap<T, T>;
 export declare const Patcher: unique symbol;
-export declare const NO_VALUE: unique symbol;
 export declare const WatcherProxy: unique symbol;
 export declare const TargetRef: unique symbol;
 declare type JSONPatch = {
@@ -29,32 +29,6 @@ export declare class MutationsManager {
 }
 export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[] | undefined;
 export declare const autorun: <T extends object>(stateTree: T, callback: (observable: T, patches?: JSONPatchEnhanced[] | undefined) => unknown) => () => void;
-export interface MutationTreeNodeWithReplace {
-    /** operation replace */
-    op: "replace";
-    /** replace has an old value, which might be falsy, but still exists */
-    old: unknown;
-    /** new value is again, probably falsy, but still exists */
-    new: unknown;
-}
-export interface MutationTreeNodeWithRemove {
-    /** operation remove old contains old value */
-    op: "remove";
-    /** old value ca be fasly, but still exists */
-    old: unknown;
-}
-export interface MutationTreeNodeWithAdd {
-    /** operation add only contains a new value */
-    op: "add";
-    /** new value is can be falsy, but still exists */
-    new: any;
-}
-export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
-    k: string | number;
-    p: null | MutationTreeNode;
-    /** the children of this node */
-    c?: Record<string, MutationTreeNode>;
-};
 /**
  * When working with domain objects, it's probably best to have a
  * method that serializes them so we can 'snapshot' how they origianlly

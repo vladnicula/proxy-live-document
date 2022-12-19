@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MutationTreeNode, NO_VALUE } from '../../src'
-import { makeAndGetChildPointer, createMutaitonInMutationTree } from '../../src/mutation-map'
+import { MutationTreeNode, NO_VALUE, makeAndGetChildPointer, createMutaitonInMutationTree } from '../../src/mutation-map'
 
 describe('working with children nodes in mutation tree', () => {
     it('makeAndGetChildPointer adds a new leaf in tree', () => {

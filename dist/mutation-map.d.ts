@@ -1,4 +1,31 @@
-import { JSONPatchEnhanced, MutationTreeNode } from ".";
+import type { JSONPatchEnhanced } from ".";
+export declare const NO_VALUE: unique symbol;
+export interface MutationTreeNodeWithReplace {
+    /** operation replace */
+    op: "replace";
+    /** replace has an old value, which might be falsy, but still exists */
+    old: unknown;
+    /** new value is again, probably falsy, but still exists */
+    new: unknown;
+}
+export interface MutationTreeNodeWithRemove {
+    /** operation remove old contains old value */
+    op: "remove";
+    /** old value ca be fasly, but still exists */
+    old: unknown;
+}
+export interface MutationTreeNodeWithAdd {
+    /** operation add only contains a new value */
+    op: "add";
+    /** new value is can be falsy, but still exists */
+    new: any;
+}
+export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
+    k: string | number;
+    p: null | MutationTreeNode;
+    /** the children of this node */
+    c?: Record<string, MutationTreeNode>;
+};
 /**
  * Given a mutaion node, it will look thru its ancestors
  * for a node that has a mutation operation and is not

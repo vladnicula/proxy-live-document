@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { MutationTreeNode, NO_VALUE } from '../../src'
-import { getPatchesFromMutationTree } from '../../src/mutation-map'
+import { getPatchesFromMutationTree, MutationTreeNode } from '../../src/mutation-map'
 
 describe('producing patched from mutation trees', () => {
     it('should return empty patches from tree that has no ops', () => {
