@@ -45,6 +45,5 @@ export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | Mutat
 export declare const getParentWithOperation: (mutationNode: MutationTreeNode) => [MutationTreeNode, string[]] | null;
 export declare const makeAndGetChildPointer: (mutationNode: MutationTreeNode, prop: string | number) => MutationTreeNode;
 export declare const createMutaitonInMutationTree: (mutationNode: MutationTreeNode, oldValue: unknown, newValue: unknown) => void;
-export declare const createMutaitonInMutationTree2: (mutationNode: MutationTreeNode, oldValue: unknown, newValue: unknown) => void;
 export declare const getPatchesFromMutationTree: (mutationNode: MutationTreeNode) => JSONPatchEnhanced[];
 export declare const accumulatePatchesFromMutationTree: (mutationNode: MutationTreeNode, acc: JSONPatchEnhanced[], pathArray?: string[]) => void;
