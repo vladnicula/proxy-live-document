@@ -1,3 +1,4 @@
+import { createMutaitonInMutationTree, getPatchesFromMutationTree, makeAndGetChildPointer, MutationTreeNode, NO_VALUE } from "./mutation-map"
 import { ProxyCache } from "./proxy-cache"
 import { addSelectorToTree, getRefDescedents, removeSelectorFromTree, SelectorTreeBranch } from "./selector-map"
 import { isObject } from "./utils/isObject"
@@ -19,89 +20,6 @@ type JSONPatch = {
 
 export type JSONPatchEnhanced = JSONPatch & {
   pathArray: string[],
-}
-
-export const combinedJSONPatches = (operations: JSONPatchEnhanced[]) => {
-  const skipMap = new Map()
-  for ( let i = 0; i < operations.length; i += 1 ) {
-    const compareOp = operations[i]
-    if ( skipMap.has(compareOp) ) {
-      continue;
-    }
-    for ( let j = 0; j < operations.length; j += 1 ) {
-      const compareWithOp = operations[j]
-      if ( compareOp === compareWithOp || skipMap.has(compareWithOp) ) {
-        continue;
-      }
-
-      if ( compareWithOp.path.includes(compareOp.path) 
-        && combineIntersectedPathOperations(compareOp, compareWithOp)
-      ) {
-        skipMap.set(compareWithOp, true)
-      }
-    }
-  }
-
-  return operations.filter((op) => !skipMap.has(op))
-}
-
-/**
- * Takes a "parent" operation and a "child" operation based on their path
- * and changes the parent operation to contain the child one if possible.
- * 
- * Used to merge togather multiple operations on the same subtree, at different
- * levels. 
- * 
- * This is needed because the mutations could sometimes write or remove the same
- * key at different points in the execution, and we only care about the final result
- * at the end of the transactionlike operation.
- * 
- * The return statement is a boolean. If merge was possible, the destinatoin of the 
- * merge, the first param of this function, is already mutated to contain the 
- * new content.
- * 
- * @param into JSON Patch op that is a parent of the from op
- * @param from JSON Patch op that is a child of the into op
- * 
- * @returns true if the merge was possible, and false otherwise
- */
-const combineIntersectedPathOperations = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) => {
-  const pathTarget = into.path
-  const pathFrom = from.path
-
-  if ( !pathFrom.includes(pathTarget) ) {
-    return false
-  }
-
-  switch ( into.op ) {
-    case "remove":
-      if ( from.op === 'add' ) {
-        into.op = 'replace'
-        into.value = from.value
-      }
-      return true
-    case "add":
-      mergeWithParentAdd(into, from)
-      return true
-    case "replace":
-      return true
-    default:
-      return false
-  }
-}
-
-const mergeWithParentAdd = (into: JSONPatchEnhanced, from: JSONPatchEnhanced) => {
-  const mergeIntoValue = into.value as Record<string, unknown>
-  const subPath = from.path.replace(into.path, '')
-  const subPathArray = subPath.split('/').filter(part => !!part)
-  applyJSONPatchOperation(
-    {
-      ...from,
-      path: subPath,
-      pathArray: subPathArray
-    },
-    mergeIntoValue
-  )
 }
 
 export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPatchEnhanced, stateTree: T) => {
@@ -180,12 +98,14 @@ export class MutationsManager {
   mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
   mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>> = new Map()
   mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>> = new Map()
+  mutationChagnePointers: Map<ObjectTree, MutationTreeNode> = new Map()
 
   private getSubProxy = <T extends ObjectTree>(
     target: ObjectTree, 
+    relevantMutationPointer: MutationTreeNode,
     selectorTreePointer: Array<SelectorTreeBranch>,
     subTarget: T, 
-    currentPathArray?: string[],
+    // currentPathArray: string[],
   ): T => {
     const mutationProxies = this.mutationMaps.get(target)
     let proxy = mutationProxies?.get(subTarget) as T | undefined
@@ -193,10 +113,22 @@ export class MutationsManager {
       proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
         target: subTarget,
         selectorPointerArray: selectorTreePointer,
+        mutationNode: relevantMutationPointer,
         dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
-        pathArray: currentPathArray,
-        proxyfyAccess:  <T extends ObjectTree>(someOtherSubTarget: T, newPointers: SelectorTreeBranch[], someOtherPathArray?: string[]) => {
-          return this.getSubProxy(target, newPointers, someOtherSubTarget, someOtherPathArray)
+        // pathArray: currentPathArray,
+        proxyfyAccess:  <T extends ObjectTree>(
+          subentityFromTarget: T, 
+          relevantMutationPointer: MutationTreeNode,
+          relevantSelectionPointers: SelectorTreeBranch[], 
+          // someOtherPathArray: string[]
+        ) => {
+          return this.getSubProxy(
+            target, 
+            relevantMutationPointer,
+            relevantSelectionPointers, 
+            subentityFromTarget, 
+            // someOtherPathArray
+          )
         }
       }) as ProxyHandler<T>) as T
       mutationProxies?.set(subTarget, proxy)
@@ -213,12 +145,18 @@ export class MutationsManager {
     const selectorPointers = new Array<SelectorTreeBranch>(
       selectorsManager.getSelectorTree(target)
     )
+    const mutationPointer: MutationTreeNode = {
+      p: null,
+      k: ''
+    }
+    this.mutationChagnePointers.set(target, mutationPointer)
     const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
       target,
       selectorPointerArray: selectorPointers,
+      mutationNode: mutationPointer,
       dirtyPaths: mutationDirtyPaths,
-      proxyfyAccess: <T extends ObjectTree>(subTarget: T, newPointers: SelectorTreeBranch[], pathArray?: string[]) => {
-        return this.getSubProxy(target, newPointers, subTarget, pathArray)
+      proxyfyAccess: <T extends ObjectTree>(subTarget: T, mutationPoiner: MutationTreeNode, newPointers: SelectorTreeBranch[]) => {
+        return this.getSubProxy(target, mutationPoiner, newPointers, subTarget)
       }
     }))
     proxyMapForMutation.set(target, rootProxy)
@@ -238,47 +176,25 @@ export class MutationsManager {
       return []
     }
 
-    const [allDistinctPatches, uniqueSelectorPaths] = Array.from(dirtyPaths).reduce(
+    const uniqueSelectorPaths = Array.from(dirtyPaths).reduce(
       (
-        [patches, selectorPointers],
+        selectorPointers,
         value,
       ) => {
-
-        const { pathArray, ops } = value
-        const sourcePath = pathArray.length ? `/${pathArray.join('/')}` : ''
-        for ( let i = 0; i < ops.length; i += 1 ) {
-
-          const op = ops[i] 
-          const { old, value } = op
-
-          if ( old === value ) {
-            continue
-          }
-
-          patches.push({
-            ...op,
-            path: `${sourcePath}/${op.path}`,
-            pathArray: [...pathArray, op.path]
-          })
-
-        }
-
         value.writeSelectorPointerArray
           .filter((item) => {
             return item.propName !== 'root'
           })
           .forEach(item => selectorPointers.add(item))
 
-        return [patches, selectorPointers]
+        return selectorPointers
       }, 
-      [[], new Set()] as [
-        JSONPatchEnhanced[],
-        Set<SelectorTreeBranch>
-      ]
+      new Set() as Set<SelectorTreeBranch>
     )
 
-    const combinedPatches = combinedJSONPatches(allDistinctPatches)
-
+    
+    // const combinedPatches = combinedJSONPatches(allDistinctPatches)
+    const combinedPatches = getPatchesFromMutationTree(this.mutationChagnePointers.get(target)!)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
 
     this.mutationMaps.delete(target)
@@ -423,6 +339,7 @@ export const autorun = <T extends ObjectTree>(
   return cleanup
 }
 
+
 /**
  * When working with domain objects, it's probably best to have a 
  * method that serializes them so we can 'snapshot' how they origianlly
@@ -437,31 +354,75 @@ export abstract class IObservableDomain {
   abstract fromJSON: (input: Record<string, unknown>) => void
 }
 
-
+type ProxyAccessFN<T = any> = (
+  target: T, 
+  mutationPointer: MutationTreeNode,
+  newPointers: SelectorTreeBranch[], 
+  // pathArray: string[] 
+) => T
 export class ProxyMutationObjectHandler<T extends object> {
-  readonly pathArray: string[]
+  // readonly pathArray: string[]
   readonly deleted: Record<string, boolean> = {}
+
+  // THIS SHOULD BE DELTEDD AFTER NEW COMBINED PATCHES
+  // it is used to set the "old" reference value of a
+  // patch. I think we no longer need this, since we
+  // can read the target value at the time of the change
+  // and work our way from there anyway.
   readonly original: Partial<T> = {}
+
+  // parent set this (origin mutation manager)
+  // targetRef is the current object that is proxied over?
+  // or is it the ROOT of the mutation? It is the target
+  // of the proxy, so the current object that is being
+  // used by the proxy.
+  // COULD BE CLOUSER BASED
   readonly targetRef: T
-  readonly ops: JSONPatch[] = []
+
+  /**
+   * ops are the individual operations happening on this
+   * object. All the intermediary entities that would 
+   * most probably dissapear with the new change.
+   */
+  // readonly ops: JSONPatch[] = []
+
+  // parent set this (origin mutation manager)
+  // COULD BE CLOUSER BASED
   readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
-  readonly proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[] ) => T
+
+  // parent set this (origin mutation manager)
+  // call that can create new proxies, managed by mutation manager
+  // COULD BE CLOUSER BASED
+  readonly proxyfyAccess: ProxyAccessFN
+
+  // parent set this (origin mutation manager)
+  // contains the starting selection pointers for this root, then 
+  // for each sublevel
+  // COULD BE CLOUSER BASED
   readonly selectorPointerArray: Array<SelectorTreeBranch>
+
+  // locally created, then sent over array for writes. Probably can
+  // be imrpvoed
   readonly writeSelectorPointerArray: Array<SelectorTreeBranch> = []
 
+
+  mutationNode: MutationTreeNode
+
   constructor (params: {
+    mutationNode: MutationTreeNode,
     target: T, 
-    pathArray?: string []
+    // pathArray: string []
     selectorPointerArray: Array<SelectorTreeBranch>,
     dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>,
-    proxyfyAccess: <T extends ObjectTree>(target: T, newPointers: SelectorTreeBranch[], pathArray?: string[] ) => T
+    proxyfyAccess: ProxyAccessFN
   }) {
-    const { target, pathArray = [], proxyfyAccess, dirtyPaths} = params
-    this.pathArray = pathArray
+    const { target, proxyfyAccess, dirtyPaths} = params
+    // this.pathArray = pathArray
     this.targetRef = target
     this.proxyfyAccess = proxyfyAccess
     this.dirtyPaths = dirtyPaths
     this.selectorPointerArray = params.selectorPointerArray
+    this.mutationNode = params.mutationNode
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -492,7 +453,7 @@ export class ProxyMutationObjectHandler<T extends object> {
       }
 
       const { selectorPointerArray } = this
-      const newPointers = selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+      const subPropSelectionPointers = selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
         const descendentPointers = getRefDescedents(
           item,
           prop as any
@@ -502,10 +463,17 @@ export class ProxyMutationObjectHandler<T extends object> {
         }
         return acc
       }, [])
+
+      const subPropMutationPointer = makeAndGetChildPointer(
+        this.mutationNode,
+        prop as string | number
+      )
+
       const entityProxy = this.proxyfyAccess(
-        subEntity as unknown as object,
-        newPointers,
-        [...this.pathArray, prop] as string[]
+        subEntity,
+        subPropMutationPointer,
+        subPropSelectionPointers,
+        // [...this.pathArray, prop] as string[]
       )
 
       if (!ProxyCache.exists(entityProxy as unknown as object)) {
@@ -535,11 +503,12 @@ export class ProxyMutationObjectHandler<T extends object> {
     )
 
     this.dirtyPaths.add(this)
+
     // could "tick" right here and produce the derivates :) :-? 
-    let opType: 'add' | 'replace' | 'remove' = 'add'
-    if ( target[prop] ) {
-      opType = value ? 'replace' : 'remove'
-    }
+    // let opType: 'add' | 'replace' | 'remove' = 'add'
+    // if ( target[prop] ) {
+    //   opType = value ? 'replace' : 'remove'
+    // }
 
     /**
      * We can check if this is the first time we are setting this prop
@@ -583,13 +552,34 @@ export class ProxyMutationObjectHandler<T extends object> {
     if ( typeof opOriginal === 'object' && opOriginal !== null ) {
       opOriginal = {...opOriginal} as Partial<T>[K]
     }
+
+     /**
+     * NEW MUTATION ALGO
+     */
+
+
+     const childMutationPointer = makeAndGetChildPointer(
+      this.mutationNode,
+      prop as string | number // we don't have symbols, not sure how we would set a symbol
+    )
+
+    createMutaitonInMutationTree(
+      childMutationPointer,
+      // if prop exists in target, we replace, otherwise we spcify NO_VALUE
+      prop in target ? target[prop] : NO_VALUE,
+      opValue
+    )
+
+    /**
+     * END NEW MUTATION ALGO
+     */
     
-    this.ops.push({
-      op: opType,
-      path: String(prop),
-      old: opOriginal,
-      value: opValue,
-    })
+    // this.ops.push({
+    //   op: opType,
+    //   path: String(prop),
+    //   old: opOriginal,
+    //   value: opValue,
+    // })
 
     return Reflect.set(target, prop, value)
   }
@@ -613,6 +603,18 @@ export class ProxyMutationObjectHandler<T extends object> {
             return acc
           }, [])
         )
+
+        const childMutationPointer = makeAndGetChildPointer(
+          this.mutationNode,
+          prop as string | number // we don't have symbols, not sure how we would set a symbol
+        )
+
+        createMutaitonInMutationTree(
+          childMutationPointer,
+          target[prop],
+          NO_VALUE
+        )
+
         this.dirtyPaths.add(this)
         this.deleted[prop] = true
         
@@ -624,13 +626,13 @@ export class ProxyMutationObjectHandler<T extends object> {
         if ( typeof opOriginal === 'object' && opOriginal !== null ) {
           opOriginal = {...opOriginal} as Partial<T>[K & string]
         }
-
-        this.ops.push({
-          op: 'remove',
-          path: `${prop}`,
-          old: opOriginal,
-          value: undefined
-        })
+        
+        // this.ops.push({
+        //   op: 'remove',
+        //   path: `${prop}`,
+        //   old: opOriginal,
+        //   value: undefined
+        // })
       }
     }
 

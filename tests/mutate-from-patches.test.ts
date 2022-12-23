@@ -1,5 +1,5 @@
 import { describe, it, expect , vi} from 'vitest'
-import { mutate, mutateFromPatches, select, combinedJSONPatches, Patcher, JSONPatchEnhanced } from "../src"
+import { mutate, mutateFromPatches, select, Patcher, JSONPatchEnhanced } from "../src"
 
 describe('mutate from patches', () => {
   it('applies patches on compatible structures', () => {
@@ -190,32 +190,5 @@ describe('mutate from patches', () => {
         content: 'red'
       }
     })
-  })
-
-  it('can use combinedJSONPatches to sync larger chunks of changes', () => {
-    const stateInClientOne = {
-      observeMe: 'hello'
-    } as Record<string, string>
-
-    const stateInClientTwo = {...stateInClientOne} as Record<string, string>
-
-    const patches1 = mutate(stateInClientOne, (modifiable) => {
-      modifiable.observeMe = 'changed'
-    })
-
-    const patches2 = mutate(stateInClientOne, (modifiable) => {
-      modifiable.newKey = 'new one here'
-    })
-
-    const allPatches = combinedJSONPatches([
-      ...patches1!,
-      ...patches2!
-    ])
-
-    mutateFromPatches(stateInClientTwo, allPatches!)
-
-    expect(stateInClientTwo).toHaveProperty('observeMe', 'changed')
-    expect(stateInClientTwo).toHaveProperty('newKey', 'new one here')
-    expect(stateInClientOne).toHaveProperty('observeMe', 'changed')
   })
 })
