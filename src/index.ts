@@ -303,6 +303,15 @@ const makeAutoRunProxy = <T extends ObjectTree>(
         }
       }
       return Reflect.getOwnPropertyDescriptor(target, prop)
+    },
+
+    ownKeys (target) {
+      currentPointers.push(addSelectorToTree(
+        selectorTree,
+        [...path, "*"],
+        callbackWithCleanupOfCurrentPointers,
+      ))
+      return Reflect.ownKeys(target)
     }
   })
 }
