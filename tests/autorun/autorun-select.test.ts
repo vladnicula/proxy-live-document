@@ -291,4 +291,151 @@ describe('autorun', () => {
     
   })
 
+  it("autorun supports reactions when Object.keys are used", () => {
+    const stateObject = {
+        childrenIds: {
+            "a": true,
+            "b": true,
+            "c": true
+        } as Record<string, boolean>
+    }
+
+    const autorunFn = vi.fn()
+
+    const unsub = autorun(stateObject, (state, patches) => {
+        const objectKeys = Object.keys(state.childrenIds)
+        autorunFn(objectKeys, patches)
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(1)
+
+    expect(autorunFn).toHaveBeenCalledWith(['a', 'b', 'c'], undefined)
+
+    const patches = mutate(stateObject, (state) => {
+        delete state.childrenIds.c
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(2)
+    expect(autorunFn).toHaveBeenCalledWith(['a', 'b'], patches)
+
+    const patchesDos = mutate(stateObject, (state) => {
+        // added a new key which was not in there initially
+        state.childrenIds.d = true
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(3)
+    expect(autorunFn).toHaveBeenCalledWith(['a', 'b', 'd'], patchesDos)
+
+
+    const patchesTres = mutate(stateObject, (state) => {
+        // we changed the value of a child that exists
+        state.childrenIds.b = false
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(4)
+    expect(autorunFn).toHaveBeenCalledWith(['a', 'b', 'd'], patchesTres)
+
+    unsub()
+  })
+
+  it("autorun supports reactions when Object.values are used", () => {
+    const stateObject = {
+        children: {
+            "a": { type: "text", id: 'a' },
+            "b": { type: "image", id: 'b' },
+            "c": { type: "component", id: 'c'}
+        } as Record<string, {id: string, type: string}>
+    }
+
+    const autorunFn = vi.fn()
+
+    const unsub = autorun(stateObject, (state, patches) => {
+        const values = Object.values(state.children)
+        const ids = values.map(value => value.id)
+        autorunFn(values, ids, patches)
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(1)
+
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b', 'c'])
+
+    const patches = mutate(stateObject, (state) => {
+        delete state.children.c
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(2)
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b'])
+
+    const patchesDos = mutate(stateObject, (state) => {
+        // added a new child which was not in there initially
+        state.children.d = { type: "data-fetcher", id: 'd' }
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(3)
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b', 'd'])
+
+
+    const patchesTres = mutate(stateObject, (state) => {
+        // we changed the value of a child that exists
+        state.children.b = { type: "component", id: 'b' }
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(4)
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b', 'd'])
+
+    const patchQuatro = mutate(stateObject, (state) => {
+        // we changed something inside, which is not tracked by the autorun
+        state.children.b.type = 'image'
+    })
+
+    // the autorunFn should not run again
+    expect(autorunFn).toHaveBeenCalledTimes(4)
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b', 'd'])
+
+
+    const patchCinco = mutate(stateObject, (state) => {
+        // we change something that is used in the autorun
+        state.children.b.id = 'bUpdated'
+    })
+
+
+    expect(autorunFn).toHaveBeenCalledTimes(5)
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'bUpdated', 'd'])
+
+    unsub()
+  })
+
+
+  it("autorun supports reactions when Object.entries are used", () => {
+    const stateObject = {
+        children: {
+            "a": { type: "text", id: 'a' },
+            "b": { type: "image", id: 'b' },
+            "c": { type: "component", id: 'c'}
+        } as Record<string, {id: string, type: string}>
+    }
+
+    const autorunFn = vi.fn()
+
+    const unsub = autorun(stateObject, (state, patches) => {
+        const entries = Object.entries(state.children)
+        const values = entries.map(([key, value]) => value)
+        const ids = values.map((value) => value.id)
+        autorunFn(values, ids, patches)
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(1)
+
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b', 'c'])
+
+    const patches = mutate(stateObject, (state) => {
+        delete state.children.c
+    })
+
+    expect(autorunFn).toHaveBeenCalledTimes(2)
+    expect(autorunFn.mock.lastCall?.[0].map(({id}) => id)).toEqual(['a', 'b'])
+
+    unsub()
+  })
+
 })
