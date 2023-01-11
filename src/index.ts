@@ -812,9 +812,10 @@ export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
   
   return {
     reshape: () => {
-      throw new Error(`Reshape method is no longer supported`)
+      throw new Error(`reshape is no longer supported`)
     },
     observe: (fn: (input: ReturnType<MP>) => unknown) => {
+      console.warn("observe is depreacated. Use just selectors or autorun instead")
       observersSet.add(fn)
       return () => {
         observersSet.delete(fn)
