@@ -457,6 +457,8 @@ export class ProxyMutationObjectHandler<T extends object> {
       // In order for us to avoid creating Proxies in Proxies, we are
       // caching the already created ones and if in the future we
       // need them, we are just getting them from the cache
+      // Other framerworks/libs use a symbol to mark their proxies
+      // with it and check for that symbol.
       if (ProxyCache.exists(subEntity as unknown as object)) {
         return subEntity
       }
@@ -496,6 +498,9 @@ export class ProxyMutationObjectHandler<T extends object> {
   set <K extends keyof T>(target: T, prop: K, value: T[K]) {
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
+    if ( prop === 'length' && Array.isArray(target) ) {
+      return true
+    }
     // console.log(`set`, target, prop, value)
 
     this.writeSelectorPointerArray.push(
@@ -546,9 +551,12 @@ export class ProxyMutationObjectHandler<T extends object> {
     if ( typeof value === 'object' && value !== null ) {
       const objectValue = value as unknown as object
       if ( objectValue.hasOwnProperty(WatcherProxy) ) {
-        opValue = (objectValue as unknown as { [TargetRef]: T[K] })[TargetRef] 
+        opValue = (objectValue as unknown as { [TargetRef]: T[K] })[TargetRef]
       } else {
-        opValue = {...value}
+        // was opValue = {...value} before. not sure why, all tests pass without it
+        // if spread is needed it must account for arrays from now on. Leaving it
+        // as a check for now to be safe.
+        opValue = Array.isArray(value) ? [...value] as unknown as T[K]: {...value}
       }
     }
 

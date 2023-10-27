@@ -1,6 +1,6 @@
 {
   "name": "proxy-live-document",
-  "version": "2.0.0alpha",
+  "version": "2.0.1alpha",
   "description": "Mutable, observable, patchable JSON state wrapped in Smart Domains",
   "types": "dist/index.d.ts",
   "main": "dist/index.main.js",
@@ -47,5 +47,8 @@
   "keywords": [
     "state-managment",
     "realtime-updates"
-  ]
+  ],
+  "dependencies": {
+    "@typescript-eslint/parser": "^6.9.0"
+  }
 }
