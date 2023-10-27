@@ -1,5 +1,4 @@
 # Proxy Live Document 
-(Name is pending)
 
 An opinionated, mutable, single store state management library that allows fine grained observers over what changes.
 
