@@ -556,7 +556,7 @@ export class ProxyMutationObjectHandler<T extends object> {
         // was opValue = {...value} before. not sure why, all tests pass without it
         // if spread is needed it must account for arrays from now on. Leaving it
         // as a check for now to be safe.
-        opValue = Array.isArray(value) ? [...value] as T[K]: {...value}
+        opValue = Array.isArray(value) ? [...value] as unknown as T[K]: {...value}
       }
     }
 
