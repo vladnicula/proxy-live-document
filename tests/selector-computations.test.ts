@@ -98,7 +98,7 @@ describe('selector reaction to ancestors', () => {
     expect(callbackSpy).toHaveBeenCalledTimes(1)
   })
 
-  it.only('selector runs when key is deleted and selectors listens to ** ', () => {
+  it('selector runs when key is deleted and selectors listens to ** ', () => {
     const myState = cloneDeep(myStateTemplate)
     
     const callbackSpy = vi.fn()
