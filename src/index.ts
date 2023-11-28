@@ -768,43 +768,60 @@ export class StateTreeSelectorsManager<
     combinedPatches: JSONPatchEnhanced[]
   ) {
 
-    const uniqueSelectorFunctions = new Set<SeletorMappingBase<any>>()
+    const uniqueSelectorFunctions = new Set<SelectorMappingBase<any>>()
 
-    const callSelector = (sub: SeletorMappingBase<T>) => {
+    const callSelector = (sub: SelectorMappingBase<T>) => {
       sub(stateTree, combinedPatches)
     }
 
     const addToSet = uniqueSelectorFunctions.add.bind(uniqueSelectorFunctions)
 
-    const callSelectorOnLayerThenChildren = (layerPointers: SelectorTreeBranch[]) => {
+    const callSelectorOnLayerThenChildren = (layerPointers: SelectorTreeBranch[], isRootPointer = false) => {
       layerPointers.forEach((layerPointer) => {
         const { subs, children } = layerPointer
-        subs?.forEach(addToSet)
+        if ( isRootPointer ) {
+          subs?.forEach(addToSet)
+        } else {
+          subs?.filter((sub) => {
+            return sub.options?.reactToAncestorChanges
+          }).forEach(addToSet)
+        }
         if ( children ) {
           callSelectorOnLayerThenChildren(Object.values(children))
         }
       })
     }
 
-    callSelectorOnLayerThenChildren(selectorPointers as unknown as SelectorTreeBranch[])
+    callSelectorOnLayerThenChildren(selectorPointers as unknown as SelectorTreeBranch[], true)
 
     uniqueSelectorFunctions.forEach(callSelector)
   }
 }
 
 export const selectorsManager = new StateTreeSelectorsManager()
-export type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown
 
-export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
+export type SelectorOptions = {
+  reactToAncestorChanges?: boolean;
+};
+
+export type SelectorMappingBase<T> = {
+  (s: T, patches: JSONPatchEnhanced[]): unknown;
+  options?: SelectorOptions;
+};
+
+export const select = <T extends ObjectTree, MP extends SelectorMappingBase<T>>(
   stateTree: T, 
   selectors: string[],
-  mappingFn: MP
+  mappingFn: MP,
+  options?: {
+    reactToAncestorChanges?: boolean
+  }
 ) => {
   const castSelectorManager = (selectorsManager as unknown as StateTreeSelectorsManager<T>)
 
   const selectorTree = castSelectorManager.getSelectorTree(stateTree)
   const observersSet = new Set<(input: ReturnType<MP>) => unknown>()
-  const selectorWithObservers: SeletorMappingBase<T> = (...args) => {
+  const selectorWithObservers: SelectorMappingBase<T> = (...args) => {
     const value = mappingFn(...args)
     observersSet.forEach(obs => obs(value as ReturnType<MP>))
     return value
@@ -815,6 +832,7 @@ export const select = <T extends ObjectTree, MP extends SeletorMappingBase<T>>(
       selectorTree,
       getSelectorPathArray(selector),
       selectorWithObservers,
+      options
     )
   })
   

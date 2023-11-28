@@ -1,15 +1,21 @@
-import { SeletorMappingBase } from ".";
+import { SelectorMappingBase } from ".";
 
 export interface SelectorTreeBranch {
     propName: string | number
     children?: Record<string, SelectorTreeBranch>
-    subs?: Array<SeletorMappingBase<any>>
+    subs?: Array<SelectorMappingBase<any>>,
+    options?: {
+        reactToAncestorChanges?: boolean
+    }
 }
 
 export const addSelectorToTree = (
     tree: SelectorTreeBranch,
     pathArray: (string|number)[],
-    fn: SeletorMappingBase<any>
+    fn: SelectorMappingBase<any>,
+    options?: {
+        reactToAncestorChanges?: boolean
+    }
 ) => {
     let currentPathInTree = tree
     let currentPathInArray = [...pathArray]
@@ -17,18 +23,19 @@ export const addSelectorToTree = (
         const item = currentPathInArray.shift()!
         currentPathInTree.children = currentPathInTree.children ?? {}
         currentPathInTree.children[item] = currentPathInTree.children[item] ?? {
-            propName: item
+            propName: item,
         }
         currentPathInTree = currentPathInTree.children[item]
     }
     currentPathInTree.subs = currentPathInTree.subs ?? []
+    fn.options = options
     currentPathInTree.subs.push(fn)
     return currentPathInTree
 }
 
 export const removeSelectorFromTree = (
     pointerRef: SelectorTreeBranch,
-    fn: SeletorMappingBase<any>
+    fn: SelectorMappingBase<any>
 ) => {
     if ( !pointerRef.subs ) {
         return false
@@ -89,7 +96,7 @@ export const countSelectorsInTree = (pointerRef: SelectorTreeBranch) => {
 }
 
 export const getAllSubsOfSubtree = (pointers: SelectorTreeBranch[]) => {
-    const subs = new Set<SeletorMappingBase<any>>()
+    const subs = new Set<SelectorMappingBase<any>>()
     const subsAdd = subs.add.bind(subs)
     for ( let i = 0; i < pointers.length; i += 1 ) {
         pointers[i].subs?.forEach(subsAdd)
