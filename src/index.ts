@@ -185,9 +185,7 @@ export class MutationsManager {
           .filter((item) => {
             return item.propName !== 'root'
           })
-          .forEach(item => {
-            return selectorPointers.add(item)
-          })
+          .forEach(item => selectorPointers.add(item))
 
         return selectorPointers
       }, 
