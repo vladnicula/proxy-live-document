@@ -81,6 +81,9 @@ describe('basic select over array', () => {
       ['/words/*'],
       (currentState) => {
         mapperSpy(currentState.words)
+      },
+      {
+        reactToAncestorChanges: true
       }
     )
 
