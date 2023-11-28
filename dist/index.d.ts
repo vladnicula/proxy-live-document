@@ -90,8 +90,16 @@ export declare class StateTreeSelectorsManager<T extends ObjectTree> {
     runSelectorPointers(stateTree: T, selectorPointers: Set<SelectorTreeBranch>, combinedPatches: JSONPatchEnhanced[]): void;
 }
 export declare const selectorsManager: StateTreeSelectorsManager<object>;
-export declare type SeletorMappingBase<T> = (s: T, patches: JSONPatchEnhanced[]) => unknown;
-export declare const select: <T extends object, MP extends SeletorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP) => {
+export declare type SelectorOptions = {
+    reactToAncestorChanges?: boolean;
+};
+export declare type SelectorMappingBase<T> = {
+    (s: T, patches: JSONPatchEnhanced[]): unknown;
+    options?: SelectorOptions;
+};
+export declare const select: <T extends object, MP extends SelectorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP, options?: {
+    reactToAncestorChanges?: boolean | undefined;
+} | undefined) => {
     reshape: () => never;
     observe: (fn: (input: ReturnType<MP>) => unknown) => () => void;
     dispose: () => void;
