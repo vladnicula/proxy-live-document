@@ -109,30 +109,38 @@ export class MutationsManager {
   ): T => {
     const mutationProxies = this.mutationMaps.get(target)
     let proxy = mutationProxies?.get(subTarget) as T | undefined
-    if ( !proxy ) {
-      proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
-        target: subTarget,
-        selectorPointerArray: selectorTreePointer,
-        mutationNode: relevantMutationPointer,
-        dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
-        // pathArray: currentPathArray,
-        proxyfyAccess:  <T extends ObjectTree>(
-          subentityFromTarget: T, 
-          relevantMutationPointer: MutationTreeNode,
-          relevantSelectionPointers: SelectorTreeBranch[], 
-          // someOtherPathArray: string[]
-        ) => {
-          return this.getSubProxy(
-            target, 
-            relevantMutationPointer,
-            relevantSelectionPointers, 
-            subentityFromTarget, 
-            // someOtherPathArray
-          )
-        }
-      }) as ProxyHandler<T>) as T
-      mutationProxies?.set(subTarget, proxy)
+    if ( proxy ) {
+      return proxy
     }
+    const subProxyParams = {
+      target: subTarget,
+      selectorPointerArray: selectorTreePointer,
+      mutationNode: relevantMutationPointer,
+      dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
+      // pathArray: currentPathArray,
+      proxyfyAccess:  <T extends ObjectTree>(
+        subentityFromTarget: T, 
+        relevantMutationPointer: MutationTreeNode,
+        relevantSelectionPointers: SelectorTreeBranch[], 
+        // someOtherPathArray: string[]
+      ) => {
+        return this.getSubProxy(
+          target, 
+          relevantMutationPointer,
+          relevantSelectionPointers, 
+          subentityFromTarget, 
+          // someOtherPathArray
+        )
+      }
+    }
+
+    const proxyHandler = Array.isArray(subTarget) 
+      ? new ProxyMutationArrayHandler(subProxyParams as any) as ProxyHandler<T>
+      : new ProxyMutationObjectHandler(subProxyParams) as ProxyHandler<T>
+
+    proxy = new Proxy(subTarget, proxyHandler) as T
+    
+    mutationProxies?.set(subTarget, proxy)
 
     return proxy
   }
@@ -452,17 +460,10 @@ export class ProxyMutationObjectHandler<T extends object> {
     }
 
     const subEntity = target[prop]
+    if (ProxyCache.exists(subEntity as unknown as object)) {
+      return subEntity
+    }
     if (typeof subEntity === 'object' && subEntity !== null) {
-      // There is no way of knowing if an object is a Proxy or not.
-      // In order for us to avoid creating Proxies in Proxies, we are
-      // caching the already created ones and if in the future we
-      // need them, we are just getting them from the cache
-      // Other framerworks/libs use a symbol to mark their proxies
-      // with it and check for that symbol.
-      if (ProxyCache.exists(subEntity as unknown as object)) {
-        return subEntity
-      }
-
       const { selectorPointerArray } = this
       const subPropSelectionPointers = selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
         const descendentPointers = getRefDescedents(
@@ -499,7 +500,7 @@ export class ProxyMutationObjectHandler<T extends object> {
     // console.log('set handler called', [prop, value], this.path)
     // TODO consider moving this from a global into a normal var
     if ( prop === 'length' && Array.isArray(target) ) {
-      return true
+      return Reflect.set(target, prop, value)
     }
     // console.log(`set`, target, prop, value)
 
@@ -607,7 +608,6 @@ export class ProxyMutationObjectHandler<T extends object> {
   deleteProperty <K extends keyof T>(target: T, prop: K) {
     if (prop in target) {
       if ( typeof prop === 'string' ) {
-
         this.writeSelectorPointerArray.push(
           ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
             const descendentPointers = getRefDescedents(
@@ -643,13 +643,6 @@ export class ProxyMutationObjectHandler<T extends object> {
         if ( typeof opOriginal === 'object' && opOriginal !== null ) {
           opOriginal = {...opOriginal} as Partial<T>[K & string]
         }
-        
-        // this.ops.push({
-        //   op: 'remove',
-        //   path: `${prop}`,
-        //   old: opOriginal,
-        //   value: undefined
-        // })
       }
     }
 
@@ -684,6 +677,211 @@ export class ProxyMutationObjectHandler<T extends object> {
    */
   has <K extends keyof T>(target: T, key: K) {
     return Reflect.has(target, key)
+  }
+}
+
+
+export class ProxyMutationArrayHandler<T extends Array<any>> {
+// readonly pathArray: string[]
+  readonly deleted: Record<string, boolean> = {}
+
+  readonly original: T = [] as unknown as T
+
+  // parent set this (origin mutation manager)
+  // targetRef is the current object that is proxied over?
+  // or is it the ROOT of the mutation? It is the target
+  // of the proxy, so the current object that is being
+  // used by the proxy.
+  // COULD BE CLOUSER BASED
+  readonly targetRef: T
+
+  /**
+   * ops are the individual operations happening on this
+   * object. All the intermediary entities that would 
+   * most probably dissapear with the new change.
+   */
+  // readonly ops: JSONPatch[] = []
+
+  // parent set this (origin mutation manager)
+  // COULD BE CLOUSER BASED
+  readonly dirtyPaths: Set<ProxyMutationArrayHandler<T>>
+
+  // parent set this (origin mutation manager)
+  // call that can create new proxies, managed by mutation manager
+  // COULD BE CLOUSER BASED
+  readonly proxyfyAccess: ProxyAccessFN
+
+  // parent set this (origin mutation manager)
+  // contains the starting selection pointers for this root, then 
+  // for each sublevel
+  // COULD BE CLOUSER BASED
+  readonly selectorPointerArray: Array<SelectorTreeBranch>
+
+  // locally created, then sent over array for writes. Probably can
+  // be imrpvoed
+  readonly writeSelectorPointerArray: Array<SelectorTreeBranch> = []
+
+
+  mutationNode: MutationTreeNode
+
+  constructor (params: {
+    mutationNode: MutationTreeNode,
+    target: T, 
+    selectorPointerArray: Array<SelectorTreeBranch>,
+    dirtyPaths: Set<ProxyMutationArrayHandler<T>>,
+    proxyfyAccess: ProxyAccessFN
+  }) {
+    const { target, proxyfyAccess, dirtyPaths} = params
+    this.targetRef = target
+    this.proxyfyAccess = proxyfyAccess
+    this.dirtyPaths = dirtyPaths
+    this.selectorPointerArray = params.selectorPointerArray
+    this.mutationNode = params.mutationNode
+  }
+
+  get <K extends keyof T>(target: T, prop: K) {
+    switch (prop) {
+      case 'splice':
+        return (...args: [number, ...number[]]) => {
+          // splice should be transactional, meaning a 
+          // mutate that does not success should not
+          // end up writing in the array.
+          
+          // slice should simply say "hey I am deleting
+          // the indexes provided between start and end"
+
+          // for now we won't deal with adding items that
+          // get inserted in the array or the -1 count for
+          // the end index.
+          const [start, end] = args
+          
+          // we should announce that we are removing the
+          // indexes between start and end in the mutations
+          // and dirty paths and what not.
+
+          for ( let i = start; i < end; i += 1 ) {
+
+            this.writeSelectorPointerArray.push(
+              ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+                const descendentPointers = getRefDescedents(
+                  item,
+                  i
+                )
+                if ( descendentPointers ) {
+                  acc.push(...descendentPointers)
+                }
+                return acc
+              }, [])
+            )
+            const childMutationPointer = makeAndGetChildPointer(
+              this.mutationNode,
+              i
+            )
+    
+            createMutaitonInMutationTree(
+              childMutationPointer,
+              target[i],
+              NO_VALUE
+            )
+    
+            this.deleted[i] = true
+          }
+      
+          this.dirtyPaths.add(this)
+
+
+          console.log('splice happening', target, args)
+          return target.splice(...args)
+        }
+      case 'push':
+        return (...args: any[]) => {
+          const pushSymbol = '-'
+          this.writeSelectorPointerArray.push(
+            ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+              const descendentPointers = getRefDescedents(
+                item,
+                pushSymbol
+              )
+              if ( descendentPointers ) {
+                acc.push(...descendentPointers)
+              }
+              return acc
+            }, [])
+          )
+
+          const childMutationPointer = makeAndGetChildPointer(
+            this.mutationNode,
+            pushSymbol
+          )
+  
+          createMutaitonInMutationTree(
+            childMutationPointer,
+            undefined,
+            args
+          )
+
+          this.dirtyPaths.add(this)
+
+          return target.push(...args)
+        }
+    }
+    return Reflect.get(target, prop);
+  }
+
+  //get set deleteProperty getOwnPropertyDescriptor ownKeys has
+  set <K extends keyof T>(target: T, prop: K, value: T[K]) {
+    console.log('set happening', target, prop, value)
+    this.writeSelectorPointerArray.push(
+      ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+        const descendentPointers = getRefDescedents(
+          item,
+          prop as number
+        )
+        if ( descendentPointers ) {
+          acc.push(...descendentPointers)
+        }
+        return acc
+      }, [])
+    )
+
+    const childMutationPointer = makeAndGetChildPointer(
+      this.mutationNode,
+      prop as number
+    )
+
+    createMutaitonInMutationTree(
+      childMutationPointer,
+      target[prop as number],
+      value
+    )
+
+    this.dirtyPaths.add(this)
+
+    return Reflect.set(target, prop, value)
+  }
+
+  /**
+   * Proxy trap for delete keyword
+   */
+  deleteProperty <K extends keyof T>(target: T, prop: K) {
+    console.log('delete happening', target, prop)
+    return Reflect.deleteProperty(target, prop)
+  }
+
+  /**
+   * Proxy trap for Object.getOwnPropertyDescriptor()
+   */
+  getOwnPropertyDescriptor <K extends keyof T>(target: T, prop: K) {
+    console.log('getOwnPropertyDescriptor happening', target, prop)
+    return Reflect.getOwnPropertyDescriptor(target, prop)
+  }
+
+  /**
+   * Proxy trap for when looking at what keys we have
+   */
+  ownKeys (target: T) {
+    console.log('ownKeys happening', target)
+    return Reflect.ownKeys(target)
   }
 }
 

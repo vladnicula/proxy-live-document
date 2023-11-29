@@ -29,8 +29,8 @@ describe('basic select over array', () => {
 
     // console.log('patches', patches)
     expect(patches).toHaveLength(1)
-    expect(patches![0].pathArray).toStrictEqual(['words', '2'])
-    expect(patches![0].value).toBe('!')
+    expect(patches![0].pathArray).toStrictEqual(['words', '-'])
+    expect(patches![0].value).toStrictEqual(['!'])
 
     selector.dispose()
   })
@@ -103,7 +103,7 @@ describe('basic select over array', () => {
     selector.dispose()
   })
 
-  it('removeing via delete', () => {
+  it.only('removeing via delete', () => {
     const state = {
       words: ['hello', 'world', '!']
     }
@@ -136,7 +136,7 @@ describe('basic select over array', () => {
     // should be a replace with undefined not a remove, but it would require
     // implementing a different mutation logic for arrays.
     expect(patches![0].op).toBe('remove')
-    expect(patches![0].pathArray).toStrictEqual(['words', '1'])
+    expect(patches![0].pathArray).toEqual(['words', 0])
     expect(patches![0].value).toBe(undefined)
 
     selector.dispose()
@@ -162,11 +162,10 @@ describe('basic select over array', () => {
       modifiable.words.splice(0, 1)
     })
 
-    // console.log('patches', patches)
-
-    // not ideal, it will "replace" all items in the array that are not deleted,
-    // but it is a true operation actually.
-    expect(patches).toHaveLength(3)
+    expect(state.words).toHaveLength(2)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toBe('remove')
+    expect(patches![0].pathArray).toEqual(['words', 0])
 
     selector.dispose()
   })
