@@ -321,7 +321,7 @@ describe('Task List project test suite', () => {
       const myNewTask = new Task(`3213421451212`, 'Buy bread')
       doc.addTask(myNewTask)
     })
-    expect(taskListProject.taskHierarchy.root).toEqual(patches![1].value)
+    expect(taskListProject.taskHierarchy.root['3213421451212']).toEqual(patches![1].value)
   })
   
 })

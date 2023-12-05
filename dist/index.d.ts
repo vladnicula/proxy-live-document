@@ -124,5 +124,5 @@ export declare const select: <T extends object, MP extends SelectorMappingBase<T
     dispose: () => void;
 };
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
-export declare const LIB_VERSION = "2.0.4beta";
+export declare const LIB_VERSION = "2.0.5beta";
 export {};

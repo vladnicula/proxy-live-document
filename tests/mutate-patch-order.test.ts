@@ -32,7 +32,8 @@ describe.only('patch order from mutations', () => {
         name: 'c',
         parentId: 'a'
     }
-    const patches = mutate(document, (modifiable) => {
+    const docClone = JSON.parse(JSON.stringify(document))
+    const patches = mutate(docClone, (modifiable) => {
         // order of the operations is important
         // the const parent here is needed before 
         // the change is made
@@ -41,10 +42,28 @@ describe.only('patch order from mutations', () => {
         parent.children[newNodeC.id] = true
     })
 
-    console.log('patches', patches)
+    // console.log('patches', patches)
     expect(patches).toHaveLength(2)
     expect(patches![0].path).toEqual('/nodes/c')
     expect(patches![1].path).toEqual('/nodes/a/children/c')
+  })
+
+  it('does not generate patch if the old and new value are the same', () => {
+    const docClone = JSON.parse(JSON.stringify(document))
+
+    const patches = mutate(docClone, (modifiable) => {
+      modifiable.nodes.a.name = 'a'
+    })
+    expect(patches).toHaveLength(0)
+  })
+
+  it('does not generate patch if delete key does not exist', () => {
+    const docClone = JSON.parse(JSON.stringify(document))
+
+    const patches = mutate(docClone, (modifiable) => {
+      delete modifiable.nodes.x
+    })
+    expect(patches).toHaveLength(0)
   })
 
 })
