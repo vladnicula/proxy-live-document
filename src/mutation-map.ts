@@ -106,6 +106,10 @@ export const createMutaitonInMutationTree = (
     newValue: unknown,
     opCount: number
 ) => {
+    // don't create mutation if old and new value are the same
+    if ( oldValue === newValue ) {
+        return
+    }
     // 1. check if this node contains an operation
     if ( "op" in mutationNode ) {
         // if the new value is NO_VALUE, it means we are deleting
@@ -308,6 +312,7 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
 
 
 export const getPatchesFromMutationTree = (mutationNode: MutationTreeNode) => {
+
     const patches: Array<JSONPatchEnhanced & {opCount : number }> = []
     accumulatePatchesFromMutationTree(mutationNode, patches)
     return patches.sort((a, b) => a.opCount - b.opCount).map((patch) => {
