@@ -83,7 +83,6 @@ export declare class ProxyMutationObjectHandler<T extends object> {
      */
     has<K extends keyof T>(target: T, key: K): boolean;
 }
-export declare const pathMatchesSource: (source: string[], target: string[]) => boolean;
 export declare class StateTreeSelectorsManager<T extends ObjectTree> {
     selectorTrees: WeakMap<T, SelectorTreeBranch>;
     getSelectorTree(stateTree: T): SelectorTreeBranch;
@@ -105,4 +104,5 @@ export declare const select: <T extends object, MP extends SelectorMappingBase<T
     dispose: () => void;
 };
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
+export declare const LIB_VERSION = "2.0.3beta";
 export {};
