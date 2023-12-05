@@ -816,7 +816,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
   
           createMutaitonInMutationTree(
             childMutationPointer,
-            undefined,
+            NO_VALUE,
             args
           )
 
@@ -830,7 +830,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
 
   //get set deleteProperty getOwnPropertyDescriptor ownKeys has
   set <K extends keyof T>(target: T, prop: K, value: T[K]) {
-    console.log('set happening', target, prop, value)
+    // console.log('set happening', target, prop, value)
     this.writeSelectorPointerArray.push(
       ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
         const descendentPointers = getRefDescedents(
@@ -864,25 +864,50 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
    * Proxy trap for delete keyword
    */
   deleteProperty <K extends keyof T>(target: T, prop: K) {
-    console.log('delete happening', target, prop)
+    // console.log('delete happening', target, prop)
+    this.writeSelectorPointerArray.push(
+      ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+        const descendentPointers = getRefDescedents(
+          item,
+          prop as string | number
+        )
+        if ( descendentPointers ) {
+          acc.push(...descendentPointers)
+        }
+        return acc
+      }, [])
+    )
+
+    const childMutationPointer = makeAndGetChildPointer(
+      this.mutationNode,
+      prop as string | number // we don't have symbols, not sure how we would set a symbol
+    )
+
+    createMutaitonInMutationTree(
+      childMutationPointer,
+      target[prop],
+      NO_VALUE
+    )
+
+    this.dirtyPaths.add(this)
     return Reflect.deleteProperty(target, prop)
   }
 
   /**
    * Proxy trap for Object.getOwnPropertyDescriptor()
    */
-  getOwnPropertyDescriptor <K extends keyof T>(target: T, prop: K) {
-    console.log('getOwnPropertyDescriptor happening', target, prop)
-    return Reflect.getOwnPropertyDescriptor(target, prop)
-  }
+  // getOwnPropertyDescriptor <K extends keyof T>(target: T, prop: K) {
+  //   // console.log('getOwnPropertyDescriptor happening', target, prop)
+  //   return Reflect.getOwnPropertyDescriptor(target, prop)
+  // }
 
-  /**
-   * Proxy trap for when looking at what keys we have
-   */
-  ownKeys (target: T) {
-    console.log('ownKeys happening', target)
-    return Reflect.ownKeys(target)
-  }
+  // /**
+  //  * Proxy trap for when looking at what keys we have
+  //  */
+  // ownKeys (target: T) {
+  //   // console.log('ownKeys happening', target)
+  //   return Reflect.ownKeys(target)
+  // }
 }
 
 export const pathMatchesSource = (source: string[], target: string[] ) => {

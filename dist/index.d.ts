@@ -83,6 +83,34 @@ export declare class ProxyMutationObjectHandler<T extends object> {
      */
     has<K extends keyof T>(target: T, key: K): boolean;
 }
+export declare class ProxyMutationArrayHandler<T extends Array<any>> {
+    readonly deleted: Record<string, boolean>;
+    readonly original: T;
+    readonly targetRef: T;
+    /**
+     * ops are the individual operations happening on this
+     * object. All the intermediary entities that would
+     * most probably dissapear with the new change.
+     */
+    readonly dirtyPaths: Set<ProxyMutationArrayHandler<T>>;
+    readonly proxyfyAccess: ProxyAccessFN;
+    readonly selectorPointerArray: Array<SelectorTreeBranch>;
+    readonly writeSelectorPointerArray: Array<SelectorTreeBranch>;
+    mutationNode: MutationTreeNode;
+    constructor(params: {
+        mutationNode: MutationTreeNode;
+        target: T;
+        selectorPointerArray: Array<SelectorTreeBranch>;
+        dirtyPaths: Set<ProxyMutationArrayHandler<T>>;
+        proxyfyAccess: ProxyAccessFN;
+    });
+    get<K extends keyof T>(target: T, prop: K): any;
+    set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;
+    /**
+     * Proxy trap for delete keyword
+     */
+    deleteProperty<K extends keyof T>(target: T, prop: K): boolean;
+}
 export declare const pathMatchesSource: (source: string[], target: string[]) => boolean;
 export declare class StateTreeSelectorsManager<T extends ObjectTree> {
     selectorTrees: WeakMap<T, SelectorTreeBranch>;

@@ -29,6 +29,7 @@ describe('basic select over array', () => {
 
     // console.log('patches', patches)
     expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('add')
     expect(patches![0].pathArray).toStrictEqual(['words', '-'])
     expect(patches![0].value).toStrictEqual(['!'])
 
@@ -59,9 +60,10 @@ describe('basic select over array', () => {
     expect(mapperSpy).toHaveBeenCalledTimes(1)
     expect(mapperSpy).toHaveBeenCalledWith(['hello', 'Vlad', '!'])
 
-    // console.log('patches', patches)
+    console.log('patches', patches)
 
     expect(patches).toHaveLength(1)
+    expect(patches![0].op).toBe('replace')
     expect(patches![0].pathArray).toStrictEqual(['words', '1'])
     expect(patches![0].value).toBe('Vlad')
 
@@ -97,13 +99,14 @@ describe('basic select over array', () => {
     // console.log('patches', patches)
 
     expect(patches).toHaveLength(1)
+    expect(patches![0].op).toBe('replace')
     expect(patches![0].pathArray).toStrictEqual(['words'])
     expect(patches![0].value).toStrictEqual(['goodbye', 'Vlad', '!'])
 
     selector.dispose()
   })
 
-  it.only('removeing via delete', () => {
+  it('removeing via delete', () => {
     const state = {
       words: ['hello', 'world', '!']
     }
@@ -136,7 +139,7 @@ describe('basic select over array', () => {
     // should be a replace with undefined not a remove, but it would require
     // implementing a different mutation logic for arrays.
     expect(patches![0].op).toBe('remove')
-    expect(patches![0].pathArray).toEqual(['words', 0])
+    expect(patches![0].pathArray).toEqual(['words', "1"])
     expect(patches![0].value).toBe(undefined)
 
     selector.dispose()
