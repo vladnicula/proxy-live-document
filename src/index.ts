@@ -687,50 +687,6 @@ export class ProxyMutationObjectHandler<T extends object> {
   }
 }
 
-export const pathMatchesSource = (source: string[], target: string[] ) => {
-  if ( source.indexOf('**') === -1 && source.length !== target.length ) {
-    return false
-  }
-
-  for ( let i = 0; i < source.length; i += 1 ) {
-
-    /**
-     * If this level of the path is static and is matched we
-     * continue to the next path
-     */
-    if ( source[i] === target[i] ) {
-      continue
-    }
-
-    /**
-     * if we match anything and still have something to match
-     * we continue to look at the next entities
-     */
-    if ( source[i] === '*' && target[i] ) {
-      continue
-    }
-
-    /**
-     * if the source ends with "**", and target[i] still exists
-     * it means we have a subtree there, we can match it and not
-     * look inside it anymore.
-     */
-    if ( i + 1 === source.length && source[i] === '**' && target[i] ) {
-      return true
-    }
-
-    /**
-     * When source and target are not equal, and all special cases of * or **
-     * are treated before this line of code, we basically say it's a do go
-     */
-    if ( target[i] !== source[i] ) {
-      return false
-    }
-  }
-
-  return true
-}
-
 /**
  * Returns the array of keys that make up the selector path
  * Removes the / at the beginning of the string, if it is 
@@ -888,3 +844,5 @@ export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
       }
   }
 }
+
+export const LIB_VERSION = '2.0.3beta'
