@@ -765,7 +765,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
               ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
                 const descendentPointers = getRefDescedents(
                   item,
-                  i
+                  i.toString()
                 )
                 if ( descendentPointers ) {
                   acc.push(...descendentPointers)
@@ -775,7 +775,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
             )
             const childMutationPointer = makeAndGetChildPointer(
               this.mutationNode,
-              i
+              i.toString()
             )
     
             createMutaitonInMutationTree(
@@ -824,7 +824,71 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
 
           return target.push(...args)
         }
+      case 'pop': {
+        return () => {
+          const lastPos = target.length - 1
+          this.writeSelectorPointerArray.push(
+            ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+              const descendentPointers = getRefDescedents(
+                item,
+                lastPos.toString()
+              )
+              if ( descendentPointers ) {
+                acc.push(...descendentPointers)
+              }
+              return acc
+            }, [])
+          )
+      
+          const childMutationPointer = makeAndGetChildPointer(
+            this.mutationNode,
+            lastPos.toString()
+          )
+      
+          createMutaitonInMutationTree(
+            childMutationPointer,
+            target[lastPos],
+            NO_VALUE
+          )
+      
+          this.dirtyPaths.add(this)
+
+          return target.pop()
+        }
+        }
+      case 'shift': {
+          return () => {
+            this.writeSelectorPointerArray.push(
+              ...this.selectorPointerArray.reduce((acc: SelectorTreeBranch[], item) => {
+                const descendentPointers = getRefDescedents(
+                  item,
+                  '0'
+                )
+                if ( descendentPointers ) {
+                  acc.push(...descendentPointers)
+                }
+                return acc
+              }, [])
+            )
+        
+            const childMutationPointer = makeAndGetChildPointer(
+              this.mutationNode,
+              '0'
+            )
+        
+            createMutaitonInMutationTree(
+              childMutationPointer,
+              target[0],
+              NO_VALUE
+            )
+        
+            this.dirtyPaths.add(this)
+  
+            return target.shift()
+          }
+          }
     }
+
     return Reflect.get(target, prop);
   }
 

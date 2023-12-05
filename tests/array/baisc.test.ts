@@ -36,6 +36,117 @@ describe('basic select over array', () => {
     selector.dispose()
   })
 
+  it('popping from an array behaves similar to removing a key to an object', () => {
+
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const mapperSpy = vi.fn()
+    const resultsCallSpy = vi.fn()
+
+    const selector = select(
+      state,
+      // select similar to reacting to words[key] = something
+      ['/words/*'],
+      (currentState) => {
+        mapperSpy(currentState.words)
+      }
+    )
+
+    const patches = mutate(state, (modifiable) => {
+      const result = modifiable.words.pop()
+      resultsCallSpy(result)
+    })
+
+    expect(mapperSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledWith('!')
+
+    expect(mapperSpy).toHaveBeenCalledWith(['hello', 'world'])
+
+
+    // console.log('patches', patches)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('remove')
+    expect(patches![0].pathArray).toStrictEqual(['words', '2'])
+    expect(patches![0].old).toStrictEqual('!')
+
+    selector.dispose()
+  })
+
+  it('shifting from an array behaves similar to removing a key to an object', () => {
+
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const mapperSpy = vi.fn()
+    const resultsCallSpy = vi.fn()
+
+
+    const selector = select(
+      state,
+      // select similar to reacting to words[key] = something
+      ['/words/*'],
+      (currentState) => {
+        mapperSpy(currentState.words)
+      }
+    )
+
+    const patches = mutate(state, (modifiable) => {
+      const result = modifiable.words.shift()
+      resultsCallSpy(result)
+    })
+
+    expect(mapperSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledWith('hello')
+
+    expect(mapperSpy).toHaveBeenCalledWith(['world', '!'])
+
+
+    // console.log('patches', patches)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('remove')
+    expect(patches![0].pathArray).toStrictEqual(['words', '0'])
+    expect(patches![0].old).toStrictEqual('hello')
+
+    selector.dispose()
+  })
+
+  it('pushing multiple values acts as multiple pushes', () => {
+    const state = {
+      words: ['hello', 'world']
+    }
+
+    const mapperSpy = vi.fn()
+
+    const selector = select(
+      state,
+      // select similar to reacting to words[key] = something
+      ['/words/*'],
+      (currentState) => {
+        mapperSpy(currentState.words)
+      }
+    )
+
+    const patches = mutate(state, (modifiable) => {
+      modifiable.words.push('!', 'How', 'are', 'you?')
+    })
+
+    expect(mapperSpy).toHaveBeenCalledTimes(1)
+    expect(mapperSpy).toHaveBeenCalledWith(['hello', 'world', '!', 'How', 'are', 'you?'])
+
+    // console.log('patches', patches)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('add')
+    expect(patches![0].pathArray).toStrictEqual(['words', '-'])
+    expect(patches![0].value).toStrictEqual(['!', 'How', 'are', 'you?'])
+
+    selector.dispose()
+  })
+
   it('replacing an array value behaves similar to replacing a key in an object', () => {
 
     const state = {
@@ -60,7 +171,7 @@ describe('basic select over array', () => {
     expect(mapperSpy).toHaveBeenCalledTimes(1)
     expect(mapperSpy).toHaveBeenCalledWith(['hello', 'Vlad', '!'])
 
-    console.log('patches', patches)
+    // console.log('patches', patches)
 
     expect(patches).toHaveLength(1)
     expect(patches![0].op).toBe('replace')
@@ -168,7 +279,7 @@ describe('basic select over array', () => {
     expect(state.words).toHaveLength(2)
     expect(patches).toHaveLength(1)
     expect(patches![0].op).toBe('remove')
-    expect(patches![0].pathArray).toEqual(['words', 0])
+    expect(patches![0].pathArray).toEqual(['words', '0'])
 
     selector.dispose()
   })
