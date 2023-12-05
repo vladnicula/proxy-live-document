@@ -7,18 +7,21 @@ export interface MutationTreeNodeWithReplace {
     old: unknown;
     /** new value is again, probably falsy, but still exists */
     new: unknown;
+    opCount: number;
 }
 export interface MutationTreeNodeWithRemove {
     /** operation remove old contains old value */
     op: "remove";
     /** old value ca be fasly, but still exists */
     old: unknown;
+    opCount: number;
 }
 export interface MutationTreeNodeWithAdd {
     /** operation add only contains a new value */
     op: "add";
     /** new value is can be falsy, but still exists */
     new: any;
+    opCount: number;
 }
 export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
     k: string | number;
@@ -44,6 +47,14 @@ export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | Mutat
  */
 export declare const getParentWithOperation: (mutationNode: MutationTreeNode) => [MutationTreeNode, string[]] | null;
 export declare const makeAndGetChildPointer: (mutationNode: MutationTreeNode, prop: string | number) => MutationTreeNode;
-export declare const createMutaitonInMutationTree: (mutationNode: MutationTreeNode, oldValue: unknown, newValue: unknown) => void;
-export declare const getPatchesFromMutationTree: (mutationNode: MutationTreeNode) => JSONPatchEnhanced[];
-export declare const accumulatePatchesFromMutationTree: (mutationNode: MutationTreeNode, acc: JSONPatchEnhanced[], pathArray?: string[]) => void;
+export declare const createMutaitonInMutationTree: (mutationNode: MutationTreeNode, oldValue: unknown, newValue: unknown, opCount: number) => void;
+export declare const getPatchesFromMutationTree: (mutationNode: MutationTreeNode) => {
+    op: "replace" | "remove" | "add";
+    path: string;
+    value: unknown;
+    old?: unknown;
+    pathArray: string[];
+}[];
+export declare const accumulatePatchesFromMutationTree: (mutationNode: MutationTreeNode, acc: Array<JSONPatchEnhanced & {
+    opCount: number;
+}>, pathArray?: string[]) => void;
