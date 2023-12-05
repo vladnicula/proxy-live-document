@@ -33,8 +33,12 @@ describe.only('patch order from mutations', () => {
         parentId: 'a'
     }
     const patches = mutate(document, (modifiable) => {
-        modifiable.nodes.c = newNodeC
-        modifiable.nodes[newNodeC.parentId].children[newNodeC.id] = true
+        // order of the operations is important
+        // the const parent here is needed before 
+        // the change is made
+        const parent = modifiable.nodes[newNodeC.parentId]
+        modifiable.nodes[newNodeC.id] = newNodeC
+        parent.children[newNodeC.id] = true
     })
 
     console.log('patches', patches)
