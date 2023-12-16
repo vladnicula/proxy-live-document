@@ -1,6 +1,6 @@
 import { describe, it, expect , vi } from 'vitest'
 
-import { mutate, select } from "../../src"
+import { mutate, mutateFromPatches, select } from "../../src"
 
 describe('basic select over array', () => {
   it('pushing into array behaves similar to adding a key to an object', () => {
@@ -29,8 +29,120 @@ describe('basic select over array', () => {
 
     // console.log('patches', patches)
     expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('add')
+    expect(patches![0].pathArray).toStrictEqual(['words', '-'])
+    expect(patches![0].value).toStrictEqual(['!'])
+
+    selector.dispose()
+  })
+
+  it('popping from an array behaves similar to removing a key to an object', () => {
+
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const mapperSpy = vi.fn()
+    const resultsCallSpy = vi.fn()
+
+    const selector = select(
+      state,
+      // select similar to reacting to words[key] = something
+      ['/words/*'],
+      (currentState) => {
+        mapperSpy(currentState.words)
+      }
+    )
+
+    const patches = mutate(state, (modifiable) => {
+      const result = modifiable.words.pop()
+      resultsCallSpy(result)
+    })
+
+    expect(mapperSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledWith('!')
+
+    expect(mapperSpy).toHaveBeenCalledWith(['hello', 'world'])
+
+
+    // console.log('patches', patches)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('remove')
     expect(patches![0].pathArray).toStrictEqual(['words', '2'])
-    expect(patches![0].value).toBe('!')
+    expect(patches![0].old).toStrictEqual('!')
+
+    selector.dispose()
+  })
+
+  it('shifting from an array behaves similar to removing a key to an object', () => {
+
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const mapperSpy = vi.fn()
+    const resultsCallSpy = vi.fn()
+
+
+    const selector = select(
+      state,
+      // select similar to reacting to words[key] = something
+      ['/words/*'],
+      (currentState) => {
+        mapperSpy(currentState.words)
+      }
+    )
+
+    const patches = mutate(state, (modifiable) => {
+      const result = modifiable.words.shift()
+      resultsCallSpy(result)
+    })
+
+    expect(mapperSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledTimes(1)
+    expect(resultsCallSpy).toHaveBeenCalledWith('hello')
+
+    expect(mapperSpy).toHaveBeenCalledWith(['world', '!'])
+
+
+    // console.log('patches', patches)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('remove')
+    expect(patches![0].pathArray).toStrictEqual(['words', '0'])
+    expect(patches![0].old).toStrictEqual('hello')
+
+    selector.dispose()
+  })
+
+  it('pushing multiple values acts as multiple pushes', () => {
+    const state = {
+      words: ['hello', 'world']
+    }
+
+    const mapperSpy = vi.fn()
+
+    const selector = select(
+      state,
+      // select similar to reacting to words[key] = something
+      ['/words/*'],
+      (currentState) => {
+        mapperSpy(currentState.words)
+      }
+    )
+
+    const patches = mutate(state, (modifiable) => {
+      modifiable.words.push('!', 'How', 'are', 'you?')
+    })
+
+    expect(mapperSpy).toHaveBeenCalledTimes(1)
+    expect(mapperSpy).toHaveBeenCalledWith(['hello', 'world', '!', 'How', 'are', 'you?'])
+
+    // console.log('patches', patches)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toEqual('add')
+    expect(patches![0].pathArray).toStrictEqual(['words', '-'])
+    expect(patches![0].value).toStrictEqual(['!', 'How', 'are', 'you?'])
 
     selector.dispose()
   })
@@ -62,6 +174,7 @@ describe('basic select over array', () => {
     // console.log('patches', patches)
 
     expect(patches).toHaveLength(1)
+    expect(patches![0].op).toBe('replace')
     expect(patches![0].pathArray).toStrictEqual(['words', '1'])
     expect(patches![0].value).toBe('Vlad')
 
@@ -97,6 +210,7 @@ describe('basic select over array', () => {
     // console.log('patches', patches)
 
     expect(patches).toHaveLength(1)
+    expect(patches![0].op).toBe('replace')
     expect(patches![0].pathArray).toStrictEqual(['words'])
     expect(patches![0].value).toStrictEqual(['goodbye', 'Vlad', '!'])
 
@@ -136,7 +250,7 @@ describe('basic select over array', () => {
     // should be a replace with undefined not a remove, but it would require
     // implementing a different mutation logic for arrays.
     expect(patches![0].op).toBe('remove')
-    expect(patches![0].pathArray).toStrictEqual(['words', '1'])
+    expect(patches![0].pathArray).toEqual(['words', "1"])
     expect(patches![0].value).toBe(undefined)
 
     selector.dispose()
@@ -162,13 +276,109 @@ describe('basic select over array', () => {
       modifiable.words.splice(0, 1)
     })
 
-    // console.log('patches', patches)
-
-    // not ideal, it will "replace" all items in the array that are not deleted,
-    // but it is a true operation actually.
-    expect(patches).toHaveLength(3)
+    expect(state.words).toHaveLength(2)
+    expect(patches).toHaveLength(1)
+    expect(patches![0].op).toBe('remove')
+    expect(patches![0].pathArray).toEqual(['words', '0'])
 
     selector.dispose()
+  })
+  
+  it('apply patches for arrays when removing items', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForSplice = mutate(state, (modifiable) => {
+      modifiable.words.splice(0, 1)
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForSplice)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
+
+  })
+
+  it('apply patches for arrays when adding items', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForPush = mutate(state, (modifiable) => {
+      modifiable.words.push('new', 'words')
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForPush)
+
+    // console.log('patchesForPush', patchesForPush)
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+    
+    expect(stateTarget).toEqual(state)
+  })
+
+  it('apply patches for arrays when replacing items', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForReplace = mutate(state, (modifiable) => {
+      modifiable.words[1] = 'Vlad'
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForReplace)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
+  })
+
+  it('apply patches for arrays when using shift', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForReplace = mutate(state, (modifiable) => {
+      modifiable.words.shift()
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForReplace)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
+  })
+
+  it('apply patches for arrays when using unshift', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForReplace = mutate(state, (modifiable) => {
+      modifiable.words.unshift('User:')
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForReplace)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
   })
 
 })

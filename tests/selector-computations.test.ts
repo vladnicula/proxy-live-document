@@ -34,12 +34,12 @@ describe('selector reaction to ancestors', () => {
     const callbackSpy = vi.fn()
     select(myState, ["nodesById/2/styles"], () => {
       callbackSpy("nodesById/2/styles selector running");
-      console.log("nodesById/2/styles selector running");
+      // console.log("nodesById/2/styles selector running");
     })
     
     select(myState, ["nodesById/2/*"], () => {
       callbackSpy("nodesById/2/* selector running")
-      console.log("nodesById/2/* selector running")
+      // console.log("nodesById/2/* selector running")
     })
     
     mutate(myState, (doc) => {
@@ -68,7 +68,7 @@ describe('selector reaction to ancestors', () => {
 
     select(myState, ["nodesById/*"], () => {
       callbackSpy("nodesById/* selector running")
-      console.log("nodesById/* selector running")
+      // console.log("nodesById/* selector running")
     })
 
     mutate(myState, (doc) => {
