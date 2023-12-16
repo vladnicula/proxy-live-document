@@ -11,7 +11,8 @@ export interface MutationTreeNodeWithReplace {
     /** replace has an old value, which might be falsy, but still exists */
     old: unknown,
     /** new value is again, probably falsy, but still exists */
-    new: unknown
+    new: unknown,
+    opCount: number
 }
 
 export interface MutationTreeNodeWithRemove {
@@ -19,6 +20,7 @@ export interface MutationTreeNodeWithRemove {
     op: "remove",
     /** old value ca be fasly, but still exists */
     old: unknown
+    opCount: number
  }
  
  export interface MutationTreeNodeWithAdd {
@@ -26,6 +28,7 @@ export interface MutationTreeNodeWithRemove {
    op: "add",
    /** new value is can be falsy, but still exists */
    new: any
+   opCount: number
  }
  
  export type MutationTreeNode = ( {} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
@@ -100,8 +103,13 @@ export const makeAndGetChildPointer = (mutationNode: MutationTreeNode, prop: str
 export const createMutaitonInMutationTree = (
     mutationNode: MutationTreeNode, 
     oldValue: unknown,
-    newValue: unknown
+    newValue: unknown,
+    opCount: number
 ) => {
+    // don't create mutation if old and new value are the same
+    if ( oldValue === newValue ) {
+        return
+    }
     // 1. check if this node contains an operation
     if ( "op" in mutationNode ) {
         // if the new value is NO_VALUE, it means we are deleting
@@ -180,6 +188,7 @@ export const createMutaitonInMutationTree = (
 
     Object.assign(mutationNode, {
         op,
+        opCount,
         d: true, // TODO remove
         ...(oldValue !== NO_VALUE? {old: oldValue} : {}),
         ...(newValue !== NO_VALUE? {new: newValue} : {}),
@@ -303,18 +312,27 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
 
 
 export const getPatchesFromMutationTree = (mutationNode: MutationTreeNode) => {
-    const patches: JSONPatchEnhanced[] = []
+
+    const patches: Array<JSONPatchEnhanced & {opCount : number }> = []
     accumulatePatchesFromMutationTree(mutationNode, patches)
-    return patches
+    return patches.sort((a, b) => a.opCount - b.opCount).map((patch) => {
+        const { opCount, ...rest } = patch
+        return rest
+    })
 }
 
-export const accumulatePatchesFromMutationTree = (mutationNode: MutationTreeNode, acc: JSONPatchEnhanced[], pathArray: string[] = []) => {
+export const accumulatePatchesFromMutationTree = (
+    mutationNode: MutationTreeNode, 
+    acc: Array<JSONPatchEnhanced & {opCount : number }>, 
+    pathArray: string[] = []
+) => {
     if ("op" in mutationNode ) {
         acc.push({
             op: mutationNode.op,
             old: ('old' in mutationNode) ? mutationNode.old : undefined,
             value: ('new' in mutationNode) ? mutationNode.new : undefined,
             pathArray,
+            opCount: mutationNode.opCount,
             path: `/${pathArray.join('/')}`
         })
         return

@@ -20,14 +20,32 @@ export declare class MutationsManager {
     mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>>;
     mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>>;
     mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>>;
-    mutationChagnePointers: Map<ObjectTree, MutationTreeNode>;
+    mutationChangePointers: Map<ObjectTree, MutationTreeNode>;
     private getSubProxy;
     startMutation(target: ObjectTree): void;
     hasRoot(rootA: any): boolean;
-    commit(target: ObjectTree): JSONPatchEnhanced[];
-    mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown): JSONPatchEnhanced[] | undefined;
+    commit(target: ObjectTree): {
+        op: "replace" | "remove" | "add";
+        path: string;
+        value: unknown;
+        old?: unknown;
+        pathArray: string[];
+    }[];
+    mutate<T extends ObjectTree>(target: T, callback: (mutable: T) => unknown): {
+        op: "replace" | "remove" | "add";
+        path: string;
+        value: unknown;
+        old?: unknown;
+        pathArray: string[];
+    }[] | undefined;
 }
-export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => JSONPatchEnhanced[] | undefined;
+export declare const mutate: <T extends object>(stateTree: T, callback: (mutable: T) => unknown) => {
+    op: 'replace' | 'remove' | 'add';
+    path: string;
+    value: unknown;
+    old?: unknown;
+    pathArray: string[];
+}[] | undefined;
 export declare const autorun: <T extends object>(stateTree: T, callback: (observable: T, patches?: JSONPatchEnhanced[] | undefined) => unknown) => () => void;
 /**
  * When working with domain objects, it's probably best to have a
@@ -57,12 +75,14 @@ export declare class ProxyMutationObjectHandler<T extends object> {
     readonly selectorPointerArray: Array<SelectorTreeBranch>;
     readonly writeSelectorPointerArray: Array<SelectorTreeBranch>;
     mutationNode: MutationTreeNode;
+    incOpCount: () => number;
     constructor(params: {
         mutationNode: MutationTreeNode;
         target: T;
         selectorPointerArray: Array<SelectorTreeBranch>;
         dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
         proxyfyAccess: ProxyAccessFN;
+        incOpCount: () => number;
     });
     get<K extends keyof T>(target: T, prop: K): any;
     set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;
@@ -97,12 +117,14 @@ export declare class ProxyMutationArrayHandler<T extends Array<any>> {
     readonly selectorPointerArray: Array<SelectorTreeBranch>;
     readonly writeSelectorPointerArray: Array<SelectorTreeBranch>;
     mutationNode: MutationTreeNode;
+    incOpCount: () => number;
     constructor(params: {
         mutationNode: MutationTreeNode;
         target: T;
         selectorPointerArray: Array<SelectorTreeBranch>;
         dirtyPaths: Set<ProxyMutationArrayHandler<T>>;
         proxyfyAccess: ProxyAccessFN;
+        incOpCount: () => number;
     });
     get<K extends keyof T>(target: T, prop: K): any;
     set<K extends keyof T>(target: T, prop: K, value: T[K]): boolean;
@@ -133,4 +155,5 @@ export declare const select: <T extends object, MP extends SelectorMappingBase<T
     dispose: () => void;
 };
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
+export declare const LIB_VERSION = "2.0.6beta";
 export {};

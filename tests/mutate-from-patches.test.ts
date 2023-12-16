@@ -118,11 +118,12 @@ describe('mutate from patches', () => {
     expect(observableCallback).toHaveBeenCalledTimes(1)
 
     const patches3 = mutate(doc, (modifiable) => {
-      modifiable.nodes['id1'].operationThatChangesInternalTypeTheRightWay('changed-via-method')
+      modifiable.nodes['id1'].operationThatChangesInternalTypeTheRightWay('ceva?')
     })
 
-    mutateFromPatches(otherDoc, patches3!)
     expect(node2).toHaveProperty('type', 'changed-via-method')
+    mutateFromPatches(otherDoc, patches3!)
+    expect(node2).toHaveProperty('type', 'ceva?')
     expect(observableCallback).toHaveBeenCalledTimes(2)
   })
 

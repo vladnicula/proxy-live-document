@@ -1,6 +1,6 @@
 import { describe, it, expect , vi } from 'vitest'
 
-import { mutate, select } from "../../src"
+import { mutate, mutateFromPatches, select } from "../../src"
 
 describe('basic select over array', () => {
   it('pushing into array behaves similar to adding a key to an object', () => {
@@ -282,6 +282,103 @@ describe('basic select over array', () => {
     expect(patches![0].pathArray).toEqual(['words', '0'])
 
     selector.dispose()
+  })
+  
+  it('apply patches for arrays when removing items', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForSplice = mutate(state, (modifiable) => {
+      modifiable.words.splice(0, 1)
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForSplice)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
+
+  })
+
+  it('apply patches for arrays when adding items', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForPush = mutate(state, (modifiable) => {
+      modifiable.words.push('new', 'words')
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForPush)
+
+    // console.log('patchesForPush', patchesForPush)
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+    
+    expect(stateTarget).toEqual(state)
+  })
+
+  it('apply patches for arrays when replacing items', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForReplace = mutate(state, (modifiable) => {
+      modifiable.words[1] = 'Vlad'
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForReplace)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
+  })
+
+  it('apply patches for arrays when using shift', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForReplace = mutate(state, (modifiable) => {
+      modifiable.words.shift()
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForReplace)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
+  })
+
+  it('apply patches for arrays when using unshift', () => {
+    const state = {
+      words: ['hello', 'world', '!']
+    }
+
+    const stateTarget = JSON.parse(JSON.stringify(state))
+
+    const patchesForReplace = mutate(state, (modifiable) => {
+      modifiable.words.unshift('User:')
+    }) ?? []
+
+    mutateFromPatches(stateTarget, patchesForReplace)
+
+    // console.log('state', state)
+    // console.log('stateTarget', stateTarget)
+
+    expect(stateTarget).toEqual(state)
   })
 
 })

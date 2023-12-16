@@ -70,6 +70,24 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(operation: JSONPat
     return
   }
 
+  if ( Array.isArray(currentStateTree) ) {
+    switch (op) {
+      case 'add':
+        if( lastPathPart === '-' ) {
+          currentStateTree.push(...(Array.isArray(value) ? value : [value]))
+        } else {
+          currentStateTree.splice(Number(lastPathPart), 0, value)
+        }
+        break
+      case 'replace':
+        currentStateTree[lastPathPart] = value
+        break
+      case 'remove':
+        currentStateTree.splice(Number(lastPathPart), 1)
+        break
+    }
+    return
+  }
   switch (op) {
     case 'add':
     case 'replace':
@@ -98,7 +116,7 @@ export class MutationsManager {
   mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
   mutationDirtyPaths: Map<ObjectTree, Set<ProxyMutationObjectHandler<ObjectTree>>> = new Map()
   mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>> = new Map()
-  mutationChagnePointers: Map<ObjectTree, MutationTreeNode> = new Map()
+  mutationChangePointers: Map<ObjectTree, MutationTreeNode> = new Map()
 
   private getSubProxy = <T extends ObjectTree>(
     target: ObjectTree, 
@@ -106,14 +124,41 @@ export class MutationsManager {
     selectorTreePointer: Array<SelectorTreeBranch>,
     subTarget: T, 
     // currentPathArray: string[],
+    incOpCount: () => number
   ): T => {
     const mutationProxies = this.mutationMaps.get(target)
     let proxy = mutationProxies?.get(subTarget) as T | undefined
-    if ( proxy ) {
-      return proxy
+
+    if ( !proxy ) {
+      proxy = new Proxy(subTarget, new ProxyMutationObjectHandler({
+        target: subTarget,
+        selectorPointerArray: selectorTreePointer,
+        mutationNode: relevantMutationPointer,
+        dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
+        incOpCount: incOpCount,
+        // pathArray: currentPathArray,
+        proxyfyAccess:  <T extends ObjectTree>(
+          subentityFromTarget: T, 
+          relevantMutationPointer: MutationTreeNode,
+          relevantSelectionPointers: SelectorTreeBranch[], 
+          // someOtherPathArray: string[]
+        ) => {
+          return this.getSubProxy(
+            target, 
+            relevantMutationPointer,
+            relevantSelectionPointers, 
+            subentityFromTarget, 
+            // someOtherPathArray
+            incOpCount
+          )
+        }
+      }) as ProxyHandler<T>) as T
+      mutationProxies?.set(subTarget, proxy)
+
     }
     const subProxyParams = {
       target: subTarget,
+      incOpCount,
       selectorPointerArray: selectorTreePointer,
       mutationNode: relevantMutationPointer,
       dirtyPaths: this.mutationDirtyPaths.get(target) as Set<ProxyMutationObjectHandler<object>>,
@@ -129,7 +174,8 @@ export class MutationsManager {
           relevantMutationPointer,
           relevantSelectionPointers, 
           subentityFromTarget, 
-          // someOtherPathArray
+          // someOtherPathArray,
+          incOpCount
         )
       }
     }
@@ -157,14 +203,20 @@ export class MutationsManager {
       p: null,
       k: ''
     }
-    this.mutationChagnePointers.set(target, mutationPointer)
+    this.mutationChangePointers.set(target, mutationPointer)
+    let opCount = 0
+    const incOpCount = () => {
+      opCount += 1
+      return opCount
+    }
     const rootProxy = new Proxy(target, new ProxyMutationObjectHandler({
       target,
       selectorPointerArray: selectorPointers,
       mutationNode: mutationPointer,
       dirtyPaths: mutationDirtyPaths,
+      incOpCount: incOpCount,
       proxyfyAccess: <T extends ObjectTree>(subTarget: T, mutationPoiner: MutationTreeNode, newPointers: SelectorTreeBranch[]) => {
-        return this.getSubProxy(target, mutationPoiner, newPointers, subTarget)
+        return this.getSubProxy(target, mutationPoiner, newPointers, subTarget, incOpCount)
       }
     }))
     proxyMapForMutation.set(target, rootProxy)
@@ -202,7 +254,7 @@ export class MutationsManager {
 
     
     // const combinedPatches = combinedJSONPatches(allDistinctPatches)
-    const combinedPatches = getPatchesFromMutationTree(this.mutationChagnePointers.get(target)!)
+    const combinedPatches = getPatchesFromMutationTree(this.mutationChangePointers.get(target)!)
     selectorsManager.runSelectorPointers(target, uniqueSelectorPaths, combinedPatches)
 
     this.mutationMaps.delete(target)
@@ -424,6 +476,7 @@ export class ProxyMutationObjectHandler<T extends object> {
 
 
   mutationNode: MutationTreeNode
+  incOpCount: () => number
 
   constructor (params: {
     mutationNode: MutationTreeNode,
@@ -431,7 +484,8 @@ export class ProxyMutationObjectHandler<T extends object> {
     // pathArray: string []
     selectorPointerArray: Array<SelectorTreeBranch>,
     dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>,
-    proxyfyAccess: ProxyAccessFN
+    proxyfyAccess: ProxyAccessFN,
+    incOpCount: () => number
   }) {
     const { target, proxyfyAccess, dirtyPaths} = params
     // this.pathArray = pathArray
@@ -440,6 +494,7 @@ export class ProxyMutationObjectHandler<T extends object> {
     this.dirtyPaths = dirtyPaths
     this.selectorPointerArray = params.selectorPointerArray
     this.mutationNode = params.mutationNode
+    this.incOpCount = params.incOpCount
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -585,7 +640,8 @@ export class ProxyMutationObjectHandler<T extends object> {
       childMutationPointer,
       // if prop exists in target, we replace, otherwise we spcify NO_VALUE
       prop in target ? target[prop] : NO_VALUE,
-      opValue
+      opValue,
+      this.incOpCount()
     )
 
     /**
@@ -629,7 +685,8 @@ export class ProxyMutationObjectHandler<T extends object> {
         createMutaitonInMutationTree(
           childMutationPointer,
           target[prop],
-          NO_VALUE
+          NO_VALUE,
+          this.incOpCount()
         )
 
         this.dirtyPaths.add(this)
@@ -724,12 +781,15 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
 
   mutationNode: MutationTreeNode
 
+  incOpCount: () => number
+
   constructor (params: {
     mutationNode: MutationTreeNode,
     target: T, 
     selectorPointerArray: Array<SelectorTreeBranch>,
     dirtyPaths: Set<ProxyMutationArrayHandler<T>>,
     proxyfyAccess: ProxyAccessFN
+    incOpCount: () => number
   }) {
     const { target, proxyfyAccess, dirtyPaths} = params
     this.targetRef = target
@@ -737,6 +797,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
     this.dirtyPaths = dirtyPaths
     this.selectorPointerArray = params.selectorPointerArray
     this.mutationNode = params.mutationNode
+    this.incOpCount = params.incOpCount
   }
 
   get <K extends keyof T>(target: T, prop: K) {
@@ -781,7 +842,8 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
             createMutaitonInMutationTree(
               childMutationPointer,
               target[i],
-              NO_VALUE
+              NO_VALUE,
+              this.incOpCount()
             )
     
             this.deleted[i] = true
@@ -790,7 +852,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
           this.dirtyPaths.add(this)
 
 
-          console.log('splice happening', target, args)
+          // console.log('splice happening', target, args)
           return target.splice(...args)
         }
       case 'push':
@@ -817,7 +879,8 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
           createMutaitonInMutationTree(
             childMutationPointer,
             NO_VALUE,
-            args
+            args,
+            this.incOpCount()
           )
 
           this.dirtyPaths.add(this)
@@ -848,7 +911,8 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
           createMutaitonInMutationTree(
             childMutationPointer,
             target[lastPos],
-            NO_VALUE
+            NO_VALUE,
+            this.incOpCount()
           )
       
           this.dirtyPaths.add(this)
@@ -879,7 +943,8 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
             createMutaitonInMutationTree(
               childMutationPointer,
               target[0],
-              NO_VALUE
+              NO_VALUE,
+              this.incOpCount()
             )
         
             this.dirtyPaths.add(this)
@@ -916,7 +981,8 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
     createMutaitonInMutationTree(
       childMutationPointer,
       target[prop as number],
-      value
+      value,
+      this.incOpCount()
     )
 
     this.dirtyPaths.add(this)
@@ -950,7 +1016,8 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
     createMutaitonInMutationTree(
       childMutationPointer,
       target[prop],
-      NO_VALUE
+      NO_VALUE,
+      this.incOpCount()
     )
 
     this.dirtyPaths.add(this)
@@ -1175,3 +1242,5 @@ export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
       }
   }
 }
+
+export const LIB_VERSION = '2.0.6beta'
