@@ -814,12 +814,12 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
           // for now we won't deal with adding items that
           // get inserted in the array or the -1 count for
           // the end index.
-          const [start, end] = args
+          const [start, count] = args
           
           // we should announce that we are removing the
           // indexes between start and end in the mutations
           // and dirty paths and what not.
-
+          const end = start + count
           for ( let i = start; i < end; i += 1 ) {
 
             this.writeSelectorPointerArray.push(

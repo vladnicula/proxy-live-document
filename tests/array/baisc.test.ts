@@ -273,13 +273,13 @@ describe('basic select over array', () => {
     )
 
     const patches = mutate(state, (modifiable) => {
-      modifiable.words.splice(0, 1)
+      modifiable.words.splice(1, 1)
     })
 
     expect(state.words).toHaveLength(2)
     expect(patches).toHaveLength(1)
     expect(patches![0].op).toBe('remove')
-    expect(patches![0].pathArray).toEqual(['words', '0'])
+    expect(patches![0].pathArray).toEqual(['words', '1'])
 
     selector.dispose()
   })
