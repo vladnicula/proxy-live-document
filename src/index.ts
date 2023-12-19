@@ -1243,4 +1243,4 @@ export const inversePatch = (patch: JSONPatchEnhanced): JSONPatchEnhanced => {
   }
 }
 
-export const LIB_VERSION = '2.0.6beta'
+export const LIB_VERSION = '2.0.7beta'
