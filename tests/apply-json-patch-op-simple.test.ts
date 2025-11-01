@@ -1,54 +1,53 @@
-import { describe, it, expect , vi} from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
-import { applyJSONPatchOperation } from "../src"
+import { applyJSONPatchOperation } from '../src'
 
 describe('applyJSONPatchOperation - simple', () => {
   describe('plain structure', () => {
     const simpleStruct = {
       userName: 'jhon',
       password: '1234',
-      name: "Jhon",
-      lastName: 'Smith'    
+      name: 'Jhon',
+      lastName: 'Smith',
     }
 
     it('applies add on plain structure', () => {
-      const testStruct = {...simpleStruct}
+      const testStruct = { ...simpleStruct }
       const op = {
-        op: 'add' as 'add',
+        op: 'add' as const,
         pathArray: ['nickName'],
         path: '/nickName',
-        value: 'Jhonny'
+        value: 'Jhonny',
       }
       applyJSONPatchOperation(op, testStruct)
       expect(testStruct).toHaveProperty('nickName', 'Jhonny')
     })
 
     it('applies remove on plain structure', () => {
-      const testStruct = {...simpleStruct}
+      const testStruct = { ...simpleStruct }
       const op = {
-        op: 'remove' as 'remove',
+        op: 'remove' as const,
         pathArray: ['userName'],
         path: '/userName',
         value: undefined,
-        old: 'Jhon'
+        old: 'Jhon',
       }
       applyJSONPatchOperation(op, testStruct)
       expect(testStruct).not.toHaveProperty('userName')
     })
 
     it('applies replace on plain structure', () => {
-      const testStruct = {...simpleStruct}
+      const testStruct = { ...simpleStruct }
       const op = {
-        op: 'replace' as 'replace',
+        op: 'replace' as const,
         pathArray: ['userName'],
         path: '/userName',
         value: 'Jhonny',
-        old: "Jhon"
+        old: 'Jhon',
       }
       applyJSONPatchOperation(op, testStruct)
       expect(testStruct).toHaveProperty('userName', 'Jhonny')
     })
-
   })
 
   describe('plain nested structure', () => {
@@ -57,74 +56,73 @@ describe('applyJSONPatchOperation - simple', () => {
         id1: {
           pos: 1,
           title: 'ok',
-          checked: false
+          checked: false,
         },
         id2: {
           pos: 2,
           title: 'ok',
-          checked: false
+          checked: false,
         },
         id3: {
           pos: 3,
           title: 'ok',
-          checked: false
+          checked: false,
         },
         id4: {
           pos: 4,
           title: 'ok',
-          checked: false
+          checked: false,
         },
         id5: {
           pos: 5,
           title: 'ok',
-          checked: false
-        }
-      }
+          checked: false,
+        },
+      },
     }
 
     it('applies add on nested plain structure', () => {
-      const testStruct = {...nestedStruct, todos: {...nestedStruct.todos}}
+      const testStruct = { ...nestedStruct, todos: { ...nestedStruct.todos } }
       const op = {
-        op: 'add' as 'add',
+        op: 'add' as const,
         pathArray: ['todos', 'id2', 'category'],
         path: 'todos/id2/category',
-        value: 'chroes'
+        value: 'chroes',
       }
       applyJSONPatchOperation(op, testStruct)
       expect(testStruct.todos.id2).toHaveProperty('category', 'chroes')
     })
 
     it('applies remove on nested plain structure', () => {
-      const testStruct = {...nestedStruct, todos: {...nestedStruct.todos}}
+      const testStruct = { ...nestedStruct, todos: { ...nestedStruct.todos } }
       const op = {
-        op: 'remove' as 'remove',
+        op: 'remove' as const,
         pathArray: ['todos', 'id2'],
         path: 'todos/id2',
-        value: undefined
+        value: undefined,
       }
       applyJSONPatchOperation(op, testStruct)
       expect(testStruct.todos).not.toHaveProperty('id2')
     })
 
     it('applies replace on nested plain structure', () => {
-      const testStruct = {...nestedStruct, todos: {...nestedStruct.todos}}
+      const testStruct = { ...nestedStruct, todos: { ...nestedStruct.todos } }
       const op = {
-        op: 'replace' as 'replace',
+        op: 'replace' as const,
         pathArray: ['todos', 'id2'],
         path: 'todos/id2',
         value: {
           pos: 66,
           title: 'new titles',
-          checked: true
-        }
+          checked: true,
+        },
       }
       applyJSONPatchOperation(op, testStruct)
       expect(testStruct.todos.id2).toEqual({
         pos: 66,
         title: 'new titles',
-        checked: true
+        checked: true,
       })
     })
   })
-  
 })

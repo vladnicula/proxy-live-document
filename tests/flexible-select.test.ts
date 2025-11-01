@@ -1,29 +1,24 @@
-import { describe, it, expect , vi} from 'vitest'
-import { mutate, select } from "../src"
+import { describe, it, expect, vi } from 'vitest'
+import { mutate, select } from '../src'
 
 describe('flexible select', () => {
   it('selects any key in given object', () => {
-
     const stateTree = {
       givenObject: {
         key1: 'ceva',
         key2: 'atlceva',
-        key3: 'yet another thing'
+        key3: 'yet another thing',
       } as Record<string, string>,
-      ignoreMe: 23
+      ignoreMe: 23,
     }
 
     const callbackSpy = vi.fn()
-    select(
-      stateTree,
-      [`givenObject/*`],
-      (mappable) => {
-        const result = Object.keys(mappable.givenObject)
-        callbackSpy(result)
-        return result
-      }
-    )
-    
+    select(stateTree, ['givenObject/*'], (mappable) => {
+      const result = Object.keys(mappable.givenObject)
+      callbackSpy(result)
+      return result
+    })
+
     mutate(stateTree, (modifiable) => {
       modifiable.givenObject['key3'] = 'changed value'
     })
@@ -46,36 +41,34 @@ describe('flexible select', () => {
 
     expect(callbackSpy).toHaveBeenCalledTimes(3)
     expect(callbackSpy).toHaveBeenCalledWith(['key2', 'key5', 'key6'])
-
   })
 
   it('selects any time a subtree changes, regardless of levels', () => {
-
     const stateTree = {
       subtree1: {
         a: { a1: 'ceva' },
-        b: { b1: 'something in b', b2: { b21: 'leaf in b', b22: 'another leaf in b'} },
-        c: { c1: 'yet another thing', c2: 'more leafes in c', c3: { c31: { c311: 'very deep leaf '} } }
+        b: {
+          b1: 'something in b',
+          b2: { b21: 'leaf in b', b22: 'another leaf in b' },
+        },
+        c: {
+          c1: 'yet another thing',
+          c2: 'more leafes in c',
+          c3: { c31: { c311: 'very deep leaf ' } },
+        },
       } as Record<string, Record<string, string | Record<string, unknown>>>,
-      ignoreMe: 23
+      ignoreMe: 23,
     }
 
     const callbackSpy = vi.fn()
-    select(
-      stateTree,
-      [`subtree1/**`],
-      (mappable) => {
-        const result = {...mappable.subtree1}
-        callbackSpy(result)
-        return result
-      }
-    )
-    
+    select(stateTree, ['subtree1/**'], (mappable) => {
+      const result = { ...mappable.subtree1 }
+      callbackSpy(result)
+      return result
+    })
+
     mutate(stateTree, (modifiable) => {
-      Object.assign(
-        modifiable.subtree1.a,
-        {key3: 'changed value'}
-      )
+      Object.assign(modifiable.subtree1.a, { key3: 'changed value' })
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(1)
@@ -95,58 +88,54 @@ describe('flexible select', () => {
 
     expect(callbackSpy).toHaveBeenCalledTimes(3)
     expect(callbackSpy.mock.calls[0][0]).toEqual(stateTree.subtree1)
-
   })
 
   it('selects /named/*/named2/** path type', () => {
-
     const stateTree = {
       nodes: {
         nodeid1: {
           id: 1,
           styles: {
             paddingTop: {
-              content: '32px'
+              content: '32px',
             },
             marginTop: {
-              content: '32px'
+              content: '32px',
             },
             borderTop: {
-              content: '32px'
-            }
-          }
+              content: '32px',
+            },
+          },
         },
         nodeid2: {
           id: 2,
           styles: {
             paddingTop: {
-              content: '32px'
+              content: '32px',
             },
             marginTop: {
-              content: '32px'
+              content: '32px',
             },
             borderTop: {
-              content: '32px'
-            }
-          }
-        }
-      } as Record<string, {id: number, styles: Record<string, {content: string}>}>
+              content: '32px',
+            },
+          },
+        },
+      } as Record<
+        string,
+        { id: number; styles: Record<string, { content: string }> }
+      >,
     }
 
     const callbackSpy = vi.fn()
-    select(
-      stateTree,
-      [
-        `nodes/*`,
-        `nodes/*/styles/**`
-      ],
-      (_, matchedPacthes) => {
-        const nodeIdsThatChangedTheirStyles = matchedPacthes.map((jsonPatch) => jsonPatch.pathArray[1])
-        callbackSpy(nodeIdsThatChangedTheirStyles)
-        return nodeIdsThatChangedTheirStyles
-      }
-    )
-    
+    select(stateTree, ['nodes/*', 'nodes/*/styles/**'], (_, matchedPacthes) => {
+      const nodeIdsThatChangedTheirStyles = matchedPacthes.map(
+        (jsonPatch) => jsonPatch.pathArray[1],
+      )
+      callbackSpy(nodeIdsThatChangedTheirStyles)
+      return nodeIdsThatChangedTheirStyles
+    })
+
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid1.styles.marginTop.content = 'auto'
       modifiable.nodes.nodeid2.styles.marginTop.content = 'auto'
@@ -157,19 +146,19 @@ describe('flexible select', () => {
 
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid3 = {
-            id: 3,
-            styles: {
-              paddingTop: {
-                content: '32px'
-              },
-              marginTop: {
-                content: '32px'
-              },
-              borderTop: {
-                content: '32px'
-              }
-            }
-          }
+        id: 3,
+        styles: {
+          paddingTop: {
+            content: '32px',
+          },
+          marginTop: {
+            content: '32px',
+          },
+          borderTop: {
+            content: '32px',
+          },
+        },
+      }
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(2)
@@ -183,53 +172,52 @@ describe('flexible select', () => {
           id: 1,
           styles: {
             paddingTop: {
-              content: '32px'
+              content: '32px',
             },
             marginTop: {
-              content: '32px'
+              content: '32px',
             },
             borderTop: {
-              content: '32px'
-            }
-          }
+              content: '32px',
+            },
+          },
         },
         nodeid2: {
           id: 2,
           styles: {
             paddingTop: {
-              content: '32px'
+              content: '32px',
             },
             marginTop: {
-              content: '32px'
+              content: '32px',
             },
             borderTop: {
-              content: '32px'
-            }
-          }
-        }
-      }  as Record<string, {id: number, styles: Record<string, {content: string}>}>
-    } 
+              content: '32px',
+            },
+          },
+        },
+      } as Record<
+        string,
+        { id: number; styles: Record<string, { content: string }> }
+      >,
+    }
 
     const callbackSpy = vi.fn()
-    select(
-      stateTree,
-      [`nodes/*/styles/**`],
-      (_, matchedPacthes) => {
-        const nodeIdsThatChangedTheirStyles = matchedPacthes.map((jsonPatch) => jsonPatch.pathArray[1])
-        callbackSpy(nodeIdsThatChangedTheirStyles)
-        return nodeIdsThatChangedTheirStyles
-      }
-    )
+    select(stateTree, ['nodes/*/styles/**'], (_, matchedPacthes) => {
+      const nodeIdsThatChangedTheirStyles = matchedPacthes.map(
+        (jsonPatch) => jsonPatch.pathArray[1],
+      )
+      callbackSpy(nodeIdsThatChangedTheirStyles)
+      return nodeIdsThatChangedTheirStyles
+    })
 
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid4 = {
         id: 4,
-        styles: {}
+        styles: {},
       }
-      
     })
 
     expect(callbackSpy).toHaveBeenCalledTimes(0)
   })
-
 })

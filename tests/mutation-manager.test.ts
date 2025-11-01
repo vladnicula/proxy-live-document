@@ -1,10 +1,9 @@
-import { describe, it, expect , vi} from 'vitest'
-import { MutationsManager } from "../src"
+import { describe, it, expect, vi } from 'vitest'
+import { MutationsManager } from '../src'
 
 const mutationManager = new MutationsManager()
 
 describe('behaviour of mutation manager', () => {
-
   it('keep references of root objects being mutated', () => {
     const rootA = {}
     const rootB = {}
@@ -15,7 +14,5 @@ describe('behaviour of mutation manager', () => {
 
     expect(mutationManager.hasRoot(rootA)).toEqual(false)
     expect(mutationManager.hasRoot(rootB)).toEqual(false)
-    
   })
-
 })

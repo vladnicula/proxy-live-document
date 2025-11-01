@@ -1,14 +1,19 @@
-import { describe, it, expect , vi} from 'vitest'
-import { mutate, mutateFromPatches, select, Patcher, JSONPatchEnhanced } from "../src"
+import { describe, it, expect, vi } from 'vitest'
+import {
+  mutate,
+  mutateFromPatches,
+  select,
+  Patcher,
+  JSONPatchEnhanced,
+} from '../src'
 
 describe('mutate from patches', () => {
   it('applies patches on compatible structures', () => {
-
     const stateInClientOne = {
-      observeMe: 'hello'
+      observeMe: 'hello',
     }
 
-    const stateInClientTwo = {...stateInClientOne}
+    const stateInClientTwo = { ...stateInClientOne }
 
     const patches = mutate(stateInClientOne, (modifiable) => {
       modifiable.observeMe = 'changed'
@@ -21,14 +26,12 @@ describe('mutate from patches', () => {
   })
 
   it('applied patches trigger selector updates', () => {
-
     const stateInClientOne = {
       state: 1,
-      observeMe: 'hello'
+      observeMe: 'hello',
     }
 
-    
-    const stateInClientTwo = {...stateInClientOne, state: 2 }
+    const stateInClientTwo = { ...stateInClientOne, state: 2 }
 
     const patches = mutate(stateInClientOne, (modifiable) => {
       modifiable.observeMe = 'changed'
@@ -36,18 +39,14 @@ describe('mutate from patches', () => {
 
     const observableCallback = vi.fn()
 
-    select(
-      stateInClientTwo,
-      ['/observeMe'],
-      (mappable) => {
-        const result = mappable.observeMe
-        observableCallback(result)
-        return result
-      }
-    )
+    select(stateInClientTwo, ['/observeMe'], (mappable) => {
+      const result = mappable.observeMe
+      observableCallback(result)
+      return result
+    })
 
     mutateFromPatches(stateInClientTwo, patches!)
-    
+
     expect(stateInClientTwo).toHaveProperty('observeMe', 'changed')
     expect(stateInClientOne).toHaveProperty('observeMe', 'changed')
     expect(observableCallback).toHaveBeenCalledTimes(1)
@@ -55,27 +54,26 @@ describe('mutate from patches', () => {
   })
 
   it('can apply visible props in classes', () => {
-
     class Node {
       private elemType = 'div'
 
-      get type () {
+      get type() {
         return this.elemType
       }
 
-      set type (value: string) {
-        if ( value === 'nope' ) {
-          throw Error(`No, I don't want to`)
+      set type(value: string) {
+        if (value === 'nope') {
+          throw Error('No, I don\'t want to')
         }
         this.elemType = value
       }
 
-      operationThatChangesInternalType (elemType: string) {
-        this.elemType = elemType 
+      operationThatChangesInternalType(elemType: string) {
+        this.elemType = elemType
       }
 
-      operationThatChangesInternalTypeTheRightWay (elemType: string) {
-        this.type = elemType 
+      operationThatChangesInternalTypeTheRightWay(elemType: string) {
+        this.type = elemType
       }
     }
 
@@ -96,27 +94,25 @@ describe('mutate from patches', () => {
 
     const observableCallback = vi.fn()
 
-    select(
-      otherDoc,
-      ['/nodes/id1/type'],
-      (mappable) => {
-        const result = {...mappable.nodes.id1}
-        observableCallback(result)
-        return result
-      }
-    )
+    select(otherDoc, ['/nodes/id1/type'], (mappable) => {
+      const result = { ...mappable.nodes.id1 }
+      observableCallback(result)
+      return result
+    })
 
     expect(node1).toHaveProperty('type', 'something-else')
     expect(node2).toHaveProperty('type', 'div')
 
     mutateFromPatches(otherDoc, patches!)
-    
+
     expect(observableCallback).toHaveBeenCalledTimes(1)
     expect(observableCallback).toHaveBeenCalledWith(node2)
     expect(node2).toHaveProperty('type', 'something-else')
 
     const patches2 = mutate(doc, (modifiable) => {
-      modifiable.nodes['id1'].operationThatChangesInternalType('changed-via-method')
+      modifiable.nodes['id1'].operationThatChangesInternalType(
+        'changed-via-method',
+      )
     })
 
     mutateFromPatches(otherDoc, patches2!)
@@ -124,7 +120,9 @@ describe('mutate from patches', () => {
     expect(observableCallback).toHaveBeenCalledTimes(1)
 
     const patches3 = mutate(doc, (modifiable) => {
-      modifiable.nodes['id1'].operationThatChangesInternalTypeTheRightWay('ceva?')
+      modifiable.nodes['id1'].operationThatChangesInternalTypeTheRightWay(
+        'ceva?',
+      )
     })
 
     expect(node2).toHaveProperty('type', 'changed-via-method')
@@ -135,37 +133,42 @@ describe('mutate from patches', () => {
 
   it('applies deep via methods', () => {
     type StaticValue = {
-      type: 'static',
-      content: string
-    }
-    
+      type: 'static';
+      content: string;
+    };
+
     class ElementNode {
       readonly id: string
       private styles: Record<string, StaticValue> = {}
 
-      constructor (id: string) {
+      constructor(id: string) {
         this.id = id
       }
       addStyleByKey(key: string, value: StaticValue) {
         this.styles[key] = value
       }
     }
-    
+
     class ElementNodeHierarchy {
       [Patcher] = true
       instances: Record<string, ElementNode> = {}
       addNodeInstance(node: ElementNode) {
-        this.instances[node.id] = node;
+        this.instances[node.id] = node
       }
-      
-      applyPatch (op: JSONPatchEnhanced) {
-        if (op.op === 'add' ) {
-          // needs to know about all subtree here. In a way, it's ok, beucase this 
+
+      applyPatch(op: JSONPatchEnhanced) {
+        if (op.op === 'add') {
+          // needs to know about all subtree here. In a way, it's ok, beucase this
           // entity is indeed a composition of the children. But it might
           // not know about its grand grand chhildren.
-          const jsonValue = op.value as { id: string, styles: Record<string, StaticValue>}
+          const jsonValue = op.value as {
+            id: string;
+            styles: Record<string, StaticValue>;
+          }
           const node = new ElementNode(jsonValue.id)
-          Object.keys(jsonValue.styles).map((styleKey) => node.addStyleByKey(styleKey, jsonValue.styles[styleKey]))
+          Object.keys(jsonValue.styles).map((styleKey) =>
+            node.addStyleByKey(styleKey, jsonValue.styles[styleKey]),
+          )
           this.addNodeInstance(node)
         }
       }
@@ -180,11 +183,9 @@ describe('mutate from patches', () => {
 
     const patches = mutate(doc1, (mutable) => {
       const node = new ElementNode('id1')
-      mutable.nodes.addNodeInstance(
-        node
-      )
+      mutable.nodes.addNodeInstance(node)
 
-      node.addStyleByKey('background', {type: 'static', 'content':'red'})
+      node.addStyleByKey('background', { type: 'static', content: 'red' })
     })
 
     mutateFromPatches(doc2, patches!)
@@ -194,8 +195,8 @@ describe('mutate from patches', () => {
     expect(doc2.nodes.instances.id1).toHaveProperty('styles', {
       background: {
         type: 'static',
-        content: 'red'
-      }
+        content: 'red',
+      },
     })
   })
 })

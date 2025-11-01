@@ -1,4 +1,4 @@
-import { SelectorMappingBase } from ".";
+import { SelectorMappingBase } from '.'
 
 export interface SelectorTreeBranch {
   propName: string | number;
@@ -15,93 +15,93 @@ export const addSelectorToTree = (
   fn: SelectorMappingBase<any>,
   options?: {
     reactToAncestorChanges?: boolean;
-  }
+  },
 ) => {
-  let currentPathInTree = tree;
-  let currentPathInArray = [...pathArray];
+  let currentPathInTree = tree
+  let currentPathInArray = [...pathArray]
   while (currentPathInArray.length) {
-    const item = currentPathInArray.shift()!;
-    currentPathInTree.children = currentPathInTree.children ?? {};
+    const item = currentPathInArray.shift()!
+    currentPathInTree.children = currentPathInTree.children ?? {}
     currentPathInTree.children[item] = currentPathInTree.children[item] ?? {
       propName: item,
-    };
-    currentPathInTree = currentPathInTree.children[item];
+    }
+    currentPathInTree = currentPathInTree.children[item]
   }
-  currentPathInTree.subs = currentPathInTree.subs ?? [];
-  fn.options = options;
-  currentPathInTree.subs.push(fn);
-  return currentPathInTree;
-};
+  currentPathInTree.subs = currentPathInTree.subs ?? []
+  fn.options = options
+  currentPathInTree.subs.push(fn)
+  return currentPathInTree
+}
 
 export const removeSelectorFromTree = (
   pointerRef: SelectorTreeBranch,
-  fn: SelectorMappingBase<any>
+  fn: SelectorMappingBase<any>,
 ) => {
   if (!pointerRef.subs) {
-    return false;
+    return false
   }
-  const pos = pointerRef.subs?.indexOf(fn);
+  const pos = pointerRef.subs?.indexOf(fn)
   if (pos === -1) {
-    return false;
+    return false
   }
 
   pointerRef.subs = [
     ...pointerRef.subs.slice(0, pos),
     ...pointerRef.subs.slice(pos + 1),
-  ];
-};
+  ]
+}
 
 export const getRefDescedents = (
   pointerRef: SelectorTreeBranch,
-  childName: string | number
+  childName: string | number,
 ) => {
-  const isDoubleStar = pointerRef.propName === "**";
+  const isDoubleStar = pointerRef.propName === '**'
   if (!pointerRef.children) {
     if (isDoubleStar) {
-      return [pointerRef];
+      return [pointerRef]
     }
-    return null;
+    return null
   }
 
-  const refs = [];
-  const matchedChild = pointerRef.children[childName];
+  const refs = []
+  const matchedChild = pointerRef.children[childName]
 
   if (isDoubleStar) {
-    refs.push(pointerRef);
+    refs.push(pointerRef)
   }
 
   if (matchedChild) {
-    refs.push(matchedChild);
+    refs.push(matchedChild)
   }
 
-  if (pointerRef.children["*"]) {
-    refs.push(pointerRef.children["*"]);
+  if (pointerRef.children['*']) {
+    refs.push(pointerRef.children['*'])
   }
 
-  if (pointerRef.children["**"]) {
-    refs.push(pointerRef.children["**"]);
+  if (pointerRef.children['**']) {
+    refs.push(pointerRef.children['**'])
   }
 
-  return refs.length ? refs : null;
-};
+  return refs.length ? refs : null
+}
 
 export const countSelectorsInTree = (pointerRef: SelectorTreeBranch) => {
-  const { subs, children } = pointerRef;
+  const { subs, children } = pointerRef
   const childrenCount = Object.values(children ?? {}).reduce((acc, child) => {
-    acc += countSelectorsInTree(child);
-    return acc;
-  }, 0);
-  return (subs?.length ?? 0) + childrenCount;
-};
+    acc += countSelectorsInTree(child)
+    return acc
+  }, 0)
+  return (subs?.length ?? 0) + childrenCount
+}
 
 export const getAllSubsOfSubtree = (pointers: SelectorTreeBranch[]) => {
-  const subs = new Set<SelectorMappingBase<any>>();
-  const subsAdd = subs.add.bind(subs);
+  const subs = new Set<SelectorMappingBase<any>>()
+  const subsAdd = subs.add.bind(subs)
   for (let i = 0; i < pointers.length; i += 1) {
-    pointers[i].subs?.forEach(subsAdd);
+    pointers[i].subs?.forEach(subsAdd)
     getAllSubsOfSubtree(Object.values(pointers[i].children ?? {})).forEach(
-      subsAdd
-    );
+      subsAdd,
+    )
   }
-  return subs;
-};
+  return subs
+}

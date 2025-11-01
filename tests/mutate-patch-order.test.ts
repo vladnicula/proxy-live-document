@@ -7,39 +7,40 @@ const document = {
     a: {
       children: {},
       id: 'a',
-      name: 'a'
+      name: 'a',
     },
     b: {
       children: {},
       id: 'b',
-      name: 'b'
+      name: 'b',
+    },
+  } as Record<
+    string,
+    {
+      children: Record<string, boolean>;
+      id: string;
+      name: string;
+      parentId?: string;
     }
-  } as Record<string, {
-    children: Record<string, boolean>,
-    id: string,
-    name: string
-    parentId?: string
-  }>
+  >,
 }
 
-
 describe('patch order from mutations', () => {
-  
-  it("when setting a key on an object, the path includes the key that was set", () => {
+  it('when setting a key on an object, the path includes the key that was set', () => {
     const newNodeC = {
-        children: {},
-        id: 'c',
-        name: 'c',
-        parentId: 'a'
+      children: {},
+      id: 'c',
+      name: 'c',
+      parentId: 'a',
     }
     const docClone = JSON.parse(JSON.stringify(document))
     const patches = mutate(docClone, (modifiable) => {
-        // order of the operations is important
-        // the const parent here is needed before 
-        // the change is made
-        const parent = modifiable.nodes[newNodeC.parentId]
-        modifiable.nodes[newNodeC.id] = newNodeC
-        parent.children[newNodeC.id] = true
+      // order of the operations is important
+      // the const parent here is needed before
+      // the change is made
+      const parent = modifiable.nodes[newNodeC.parentId]
+      modifiable.nodes[newNodeC.id] = newNodeC
+      parent.children[newNodeC.id] = true
     })
 
     // console.log('patches', patches)
@@ -65,5 +66,4 @@ describe('patch order from mutations', () => {
     })
     expect(patches).toHaveLength(0)
   })
-
 })

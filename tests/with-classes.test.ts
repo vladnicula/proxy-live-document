@@ -1,6 +1,6 @@
-import { describe, it, expect , vi} from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { v4 as uuidv4 } from 'uuid'
-import { select, mutate } from "../src"
+import { select, mutate } from '../src'
 
 describe('class hierarchy example', () => {
   class StaticValue {
@@ -8,7 +8,7 @@ describe('class hierarchy example', () => {
     type: 'static' = 'static'
     content: string | number | null = null
 
-    constructor (content: string, id = uuidv4() ) {
+    constructor(content: string, id = uuidv4()) {
       this.content = content
       this.id = id
     }
@@ -17,32 +17,32 @@ describe('class hierarchy example', () => {
   class DynamicValue {
     id: string
     type: 'dynamic' = 'dynamic'
-    content: { refType: string, refId: string }
+    content: { refType: string; refId: string }
 
-    constructor (content:  { refType: string, refId: string }, id = uuidv4() ) {
+    constructor(content: { refType: string; refId: string }, id = uuidv4()) {
       this.content = content
       this.id = id
     }
   }
-  
+
   class ElementNode {
     id: string
     type: string = ''
     styles: Record<string, StaticValue | DynamicValue> = {}
 
-    constructor (id: string) {
+    constructor(id: string) {
       this.id = id
     }
 
-    addNodeStyle (styleKey: string, styleValue: StaticValue | DynamicValue ) {
+    addNodeStyle(styleKey: string, styleValue: StaticValue | DynamicValue) {
       this.styles[styleKey] = styleValue
     }
   }
-  
+
   class Document {
     nodes: Record<string, ElementNode> = {}
 
-    createNode (type: string) {
+    createNode(type: string) {
       const newId = uuidv4()
       const newNode = new ElementNode(newId)
       this.nodes[newId] = newNode
@@ -60,11 +60,9 @@ describe('class hierarchy example', () => {
 
     const observeSpy = vi.fn()
 
-    select(doc, [
-      `nodes/${someNewNodeId}`,
-    ], (state) => {
+    select(doc, [`nodes/${someNewNodeId}`], (state) => {
       const result = {
-        node: state.nodes[newNodeId]
+        node: state.nodes[newNodeId],
       }
       observeSpy(result)
       return result
@@ -78,7 +76,7 @@ describe('class hierarchy example', () => {
 
     expect(observeSpy).toHaveBeenCalledTimes(1)
     expect(observeSpy).toBeCalledWith({
-      node: doc.nodes[newNodeId]
+      node: doc.nodes[newNodeId],
     })
   })
 })

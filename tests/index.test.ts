@@ -1,17 +1,16 @@
-import { describe, it, expect , vi} from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import merge from 'lodash.merge'
 
 import { mutate } from '../src'
 
 const document = {
-  nodes: {} as Record<string, ElementNode>
+  nodes: {} as Record<string, ElementNode>,
 }
 
 class ElementNode {
-
   styles: Record<string, unknown> = {}
 
-  setStyleByKey (key: string, value: unknown) {
+  setStyleByKey(key: string, value: unknown) {
     this.styles[key] = value
   }
 }
@@ -25,19 +24,18 @@ document.nodes['a'] = newAElement
 document.nodes['b'] = newBElement
 
 describe('main', () => {
-  
-  it("when setting a key on an object, the path includes the key that was set", () => {
+  it('when setting a key on an object, the path includes the key that was set', () => {
     const patch1 = mutate(document, (modifiable) => {
       modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
     })
 
     const expectedPath = '/nodes/b/styles/borderRadius'
-    
+
     expect(patch1![0].path).not.toBeFalsy()
     expect(patch1![0].path).toEqual(expectedPath)
   })
 
-  it("changes are readable inside mutation function immediatly after setting them", () => {
+  it('changes are readable inside mutation function immediatly after setting them', () => {
     mutate(document, (modifiable) => {
       modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
       const thisValue = modifiable.nodes.b.styles['borderRadius']
@@ -46,7 +44,7 @@ describe('main', () => {
     })
   })
 
-  it("changes from mutation get applied to docunmet after mutation", () => {
+  it('changes from mutation get applied to docunmet after mutation', () => {
     mutate(document, (modifiable) => {
       modifiable.nodes.b.setStyleByKey('borderRadius', '3px')
     })
@@ -56,7 +54,7 @@ describe('main', () => {
     expect(document.nodes.b.styles).toHaveProperty('borderRadius', '3px')
   })
 
-  it("simple operations add", () => {
+  it('simple operations add', () => {
     const source: Record<string, string> = {}
     const changes = mutate(source, (modifiable) => {
       modifiable.addedKey = 'value'
@@ -72,17 +70,17 @@ describe('main', () => {
       op: 'add',
       path: '/addedKey',
       pathArray: ['addedKey'],
-      value: 'value'
+      value: 'value',
     })
   })
 
-  it("simple operations modify", () => {
-    const INITIAL_VAL = "initialValue"
+  it('simple operations modify', () => {
+    const INITIAL_VAL = 'initialValue'
     const NEW_VAL = 'newValue'
     const TARGET_KEY = 'modKey'
 
     const source: Record<string, string> = {
-      [TARGET_KEY]: INITIAL_VAL
+      [TARGET_KEY]: INITIAL_VAL,
     }
     const changes = mutate(source, (modifiable) => {
       modifiable[TARGET_KEY] = NEW_VAL
@@ -99,16 +97,16 @@ describe('main', () => {
       path: `/${TARGET_KEY}`,
       pathArray: [TARGET_KEY],
       value: NEW_VAL,
-      old: INITIAL_VAL
+      old: INITIAL_VAL,
     })
   })
 
-  it("simple operations delete", () => {
-    const INITIAL_VAL = "initialValue"
+  it('simple operations delete', () => {
+    const INITIAL_VAL = 'initialValue'
     const TARGET_KEY = 'removeableKey'
 
     const source: Record<string, string> = {
-      [TARGET_KEY]: INITIAL_VAL
+      [TARGET_KEY]: INITIAL_VAL,
     }
     const changes = mutate(source, (modifiable) => {
       delete modifiable[TARGET_KEY]
@@ -124,16 +122,16 @@ describe('main', () => {
       op: 'remove',
       path: `/${TARGET_KEY}`,
       pathArray: [TARGET_KEY],
-      old: INITIAL_VAL
+      old: INITIAL_VAL,
     })
   })
 
-  it("object deep merge", () => {
+  it('object deep merge', () => {
     const source: Record<string, string | Record<string, string>> = {
       subObject: {
         key1: 'value1',
         key2: 'value2',
-      }
+      },
     }
 
     const changes = mutate(source, (modifiable) => {
@@ -141,26 +139,25 @@ describe('main', () => {
         subObject: {
           key2: 'value2 updated',
           key3: 'value3 new value',
-        }
+        },
       })
     })
-  
+
     expect(changes).toEqual([
       {
         op: 'replace',
         path: '/subObject/key2',
         old: 'value2',
         value: 'value2 updated',
-        pathArray: [ 'subObject', 'key2' ]
+        pathArray: ['subObject', 'key2'],
       },
       {
         op: 'add',
         path: '/subObject/key3',
         old: undefined,
         value: 'value3 new value',
-        pathArray: [ 'subObject', 'key3' ]
-      }
+        pathArray: ['subObject', 'key3'],
+      },
     ])
-
   })
 })

@@ -1,45 +1,46 @@
-import merge from "lodash.merge"
+import merge from 'lodash.merge'
 import { describe, it, expect } from 'vitest'
 
-import { mutate, JSONPatchEnhanced } from "../src"
+import { mutate, JSONPatchEnhanced } from '../src'
 
 describe('json patchs combine', () => {
-
   it('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2', () => {
     const source: Record<string, string | Record<string, string>> = {}
 
     const changes = mutate(source, (modifiable) => {
       merge(modifiable, {
-      l1: {
-        lRemaining: 'this should remain',
-        l2: {
-          l31: {
-            l41: 'l41 added'
-          }
-        }
-      }
+        l1: {
+          lRemaining: 'this should remain',
+          l2: {
+            l31: {
+              l41: 'l41 added',
+            },
+          },
+        },
       })
 
       merge(modifiable, {
         l1: {
           l2: {
             l32: {
-              l42: 'l42 added'
-            }
-          }
-        }
+              l42: 'l42 added',
+            },
+          },
+        },
       })
 
       delete (modifiable.l1 as Record<string, string>).l2
     })
 
     // const combined = combinedJSONPatches(changes!)
-    expect(changes).toEqual([{
-      op: 'add',
-      path: '/l1',
-      pathArray: ['l1'],
-      value: {lRemaining: 'this should remain'}
-    }])
+    expect(changes).toEqual([
+      {
+        op: 'add',
+        path: '/l1',
+        pathArray: ['l1'],
+        value: { lRemaining: 'this should remain' },
+      },
+    ])
   })
 
   it('ignores delete that does not target any key', () => {
@@ -47,7 +48,7 @@ describe('json patchs combine', () => {
       subObject: {
         key1: 'value1',
         key2: 'value2',
-      }
+      },
     }
 
     const changes = mutate(source, (modifiable) => {
@@ -63,7 +64,7 @@ describe('json patchs combine', () => {
       key1: {
         key11: 'value1',
         key12: 'value2',
-      }
+      },
     }
 
     const changes = mutate(source, (modifiable) => {
@@ -71,13 +72,13 @@ describe('json patchs combine', () => {
         key2: {
           key21: {
             key211: 'some value',
-            key212: 'this will be deleted'
-          }
-        }
+            key212: 'this will be deleted',
+          },
+        },
       })
-      
 
-      delete (modifiable.key2 as Record<string, Record<string, unknown>>).key21.key212
+      delete (modifiable.key2 as Record<string, Record<string, unknown>>).key21
+        .key212
     })
 
     // const combined = combinedJSONPatches(changes!)
@@ -89,28 +90,29 @@ describe('json patchs combine', () => {
       key2: {
         key21: {
           key211: 'some value',
-        }
-      }
+        },
+      },
     })
-    expect(changes).toEqual([{
-      op: 'add',
-      path: '/key2',
-      pathArray: ['key2'],
-      value: {
-        key21: {
-          key211: 'some value'
-        }
-      }
-    }])
+    expect(changes).toEqual([
+      {
+        op: 'add',
+        path: '/key2',
+        pathArray: ['key2'],
+        value: {
+          key21: {
+            key211: 'some value',
+          },
+        },
+      },
+    ])
   })
-
 
   it('replace will merge over adds', () => {
     const source: Record<string, string | Record<string, string>> = {
       replaceMe: {
         key1: 'value1',
         key2: 'value2',
-      }
+      },
     }
 
     const changes = mutate(source, (modifiable) => {
@@ -118,7 +120,7 @@ describe('json patchs combine', () => {
         replaceMe: {
           key3: 'value3',
           key4: 'value4',
-        }
+        },
       })
 
       modifiable.replaceMe = 'I replaced you'
@@ -126,13 +128,13 @@ describe('json patchs combine', () => {
 
     expect(changes).toHaveLength(1)
     expect(source).toEqual({
-      replaceMe: 'I replaced you'
+      replaceMe: 'I replaced you',
     })
   })
 
-  it("handles replace followed by remove as remove", () => {
+  it('handles replace followed by remove as remove', () => {
     const obj = {
-      x: 1
+      x: 1,
     } as Record<string, any>
 
     const patches = mutate(obj, (state) => {
@@ -148,9 +150,9 @@ describe('json patchs combine', () => {
     expect(patches[0].old).toEqual(1)
   })
 
-  it("handles remove followed by add as replace", () => {
+  it('handles remove followed by add as replace', () => {
     const obj = {
-      x: 1
+      x: 1,
     } as Record<string, any>
 
     const patches = mutate(obj, (state) => {
@@ -165,7 +167,7 @@ describe('json patchs combine', () => {
     expect(patches[0].value).toEqual(32)
   })
 
-  it("handles two deletes on two levels of the same nested object as one delete with correct old source value", () => {
+  it('handles two deletes on two levels of the same nested object as one delete with correct old source value', () => {
     const obj = {
       abc: { field: 5, somethingElse: 32 },
     } as Record<string, any>
@@ -174,7 +176,7 @@ describe('json patchs combine', () => {
       delete state.abc.field
       delete state.abc
     })!
-  
+
     expect(patches[0].op).toEqual('remove')
     expect(patches[0].path).toEqual('/abc')
     expect(patches[0].old).toEqual({ field: 5, somethingElse: 32 })
@@ -194,14 +196,16 @@ describe('json patchs combine', () => {
     expect(patches[0].op).toEqual('remove')
     expect(patches[0].path).toEqual('/abc')
     expect(patches[0].old).toEqual({ field: 5, somethingElse: 32 })
-
   })
 
   it('Delete ignores newly added entiteis under it', () => {
     const obj = {
-      abc: { leve1: {
-        field: 5
-      }, somethingElse: 32 },
+      abc: {
+        leve1: {
+          field: 5,
+        },
+        somethingElse: 32,
+      },
     } as Record<string, any>
 
     const patches = mutate(obj, (state) => {
@@ -213,12 +217,10 @@ describe('json patchs combine', () => {
     expect(patches[0].op).toEqual('remove')
     expect(patches[0].path).toEqual('/abc')
     expect(patches[0].old).toEqual({
-       leve1: {
-        field: 5
-      }, 
-      somethingElse: 32  
+      leve1: {
+        field: 5,
+      },
+      somethingElse: 32,
     })
   })
-
 })
-
