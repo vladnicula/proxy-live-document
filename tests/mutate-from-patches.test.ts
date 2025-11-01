@@ -39,9 +39,12 @@ describe('mutate from patches', () => {
     select(
       stateInClientTwo,
       ['/observeMe'],
-      (mappable) => mappable.observeMe
+      (mappable) => {
+        const result = mappable.observeMe
+        observableCallback(result)
+        return result
+      }
     )
-    .observe(observableCallback)
 
     mutateFromPatches(stateInClientTwo, patches!)
     
@@ -96,9 +99,12 @@ describe('mutate from patches', () => {
     select(
       otherDoc,
       ['/nodes/id1/type'],
-      (mappable) => ({...mappable.nodes.id1})
+      (mappable) => {
+        const result = {...mappable.nodes.id1}
+        observableCallback(result)
+        return result
+      }
     )
-    .observe(observableCallback)
 
     expect(node1).toHaveProperty('type', 'something-else')
     expect(node2).toHaveProperty('type', 'div')

@@ -519,22 +519,18 @@ class CustomState implements IObservableDomain {
 
 ---
 
-## Deprecated Features
+## Breaking Changes in v3.0.0
 
-### ⛔ `reshape()` - Not Supported
+### ⛔ `reshape()` - Removed
 
-The `reshape()` method on selectors is **not supported** and will throw an error:
+The `reshape()` method has been **removed** in v3.0.0. To change which paths a selector watches, dispose the old selector and create a new one:
 
 ```typescript
 const subscription = select(state, ['/user/name'], callback)
 
-// ❌ This will throw an error
-subscription.reshape((selectors) => [...selectors, '/user/email'])
-```
+// ❌ This no longer exists
+// subscription.reshape((selectors) => [...selectors, '/user/email'])
 
-**Alternative:** Simply dispose the old selector and create a new one:
-
-```typescript
 // ✅ Do this instead
 subscription.dispose()
 const newSubscription = select(
@@ -544,19 +540,21 @@ const newSubscription = select(
 )
 ```
 
-### ⚠️ `observe()` - Deprecated
+### ⛔ `observe()` - Removed
 
-The `observe()` method is deprecated. Use `select()` or `autorun()` instead:
+The `observe()` method has been **removed** in v3.0.0. Use separate `select()` calls for multiple observers:
 
 ```typescript
-// ❌ Old API (deprecated)
-const result = select(state, ['/user/name'], callback)
-result.observe(anotherCallback)
+// ❌ Old API (removed in v3.0.0)
+// const result = select(state, ['/user/name'], callback)
+// result.observe(anotherCallback)
 
 // ✅ New API
 select(state, ['/user/name'], callback)
 select(state, ['/user/name'], anotherCallback) // Separate subscriptions
 ```
+
+**Migration Note:** Each `select()` call creates its own subscription with its own mapper function. If you had multiple `observe()` callbacks sharing one mapper, they will now each run their own mapper. This is more consistent but may change performance characteristics.
 
 ---
 

@@ -13,16 +13,16 @@ describe('flexible select', () => {
       ignoreMe: 23
     }
 
-    const selector = select(
-      stateTree, [
-        `givenObject/*`
-      ],
-      (mappable) => {
-        return Object.keys(mappable.givenObject)
-      })
-
     const callbackSpy = vi.fn()
-    selector.observe(callbackSpy)
+    select(
+      stateTree,
+      [`givenObject/*`],
+      (mappable) => {
+        const result = Object.keys(mappable.givenObject)
+        callbackSpy(result)
+        return result
+      }
+    )
     
     mutate(stateTree, (modifiable) => {
       modifiable.givenObject['key3'] = 'changed value'
@@ -60,16 +60,16 @@ describe('flexible select', () => {
       ignoreMe: 23
     }
 
-    const selector = select(
-      stateTree, [
-        `subtree1/**`
-      ],
-      (mappable) => {
-        return {...mappable.subtree1}
-      })
-
     const callbackSpy = vi.fn()
-    selector.observe(callbackSpy)
+    select(
+      stateTree,
+      [`subtree1/**`],
+      (mappable) => {
+        const result = {...mappable.subtree1}
+        callbackSpy(result)
+        return result
+      }
+    )
     
     mutate(stateTree, (modifiable) => {
       Object.assign(
@@ -133,18 +133,19 @@ describe('flexible select', () => {
       } as Record<string, {id: number, styles: Record<string, {content: string}>}>
     }
 
-    const selector = select(
-      stateTree, [
+    const callbackSpy = vi.fn()
+    select(
+      stateTree,
+      [
         `nodes/*`,
         `nodes/*/styles/**`
       ],
       (_, matchedPacthes) => {
         const nodeIdsThatChangedTheirStyles = matchedPacthes.map((jsonPatch) => jsonPatch.pathArray[1])
+        callbackSpy(nodeIdsThatChangedTheirStyles)
         return nodeIdsThatChangedTheirStyles
-      })
-
-    const callbackSpy = vi.fn()
-    selector.observe(callbackSpy)
+      }
+    )
     
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid1.styles.marginTop.content = 'auto'
@@ -209,17 +210,16 @@ describe('flexible select', () => {
       }  as Record<string, {id: number, styles: Record<string, {content: string}>}>
     } 
 
-    const selector = select(
-      stateTree, [
-        `nodes/*/styles/**`
-      ],
+    const callbackSpy = vi.fn()
+    select(
+      stateTree,
+      [`nodes/*/styles/**`],
       (_, matchedPacthes) => {
         const nodeIdsThatChangedTheirStyles = matchedPacthes.map((jsonPatch) => jsonPatch.pathArray[1])
+        callbackSpy(nodeIdsThatChangedTheirStyles)
         return nodeIdsThatChangedTheirStyles
-      })
-
-    const callbackSpy = vi.fn()
-    selector.observe(callbackSpy)
+      }
+    )
 
     mutate(stateTree, (modifiable) => {
       modifiable.nodes.nodeid4 = {

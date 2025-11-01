@@ -10,25 +10,24 @@ This document tracks known issues, bugs, and areas needing improvement in the pr
 
 ---
 
-## 1. Reshape Functionality - 📝 Won't Fix
+## 1. Reshape Functionality - ✅ Fixed
 
-**Status**: Won't Fix (Can be removed)
+**Status**: Fixed in v3.0.0
 
-**Location**: `src/index.ts:1195`
+**Previous Location**: `src/index.ts:1256-1258`
 
-**Issue**: The `reshape()` method on selectors throws an error "reshape is no longer supported"
+**Resolution**: The `reshape()` method has been **removed completely** in v3.0.0 as part of breaking changes.
 
-**Test**: `tests/basic-select.test.ts:209` (currently skipped with `it.skip`)
+**Actions Completed**:
+- ✅ Removed `reshape()` method from selector return object
+- ✅ Deleted failing test at `tests/basic-select.test.ts:209-284`
+- ✅ Updated documentation (CLAUDE.md, readme.md) to reflect removal
+- ✅ TypeScript definitions will be regenerated on build
 
-**Decision**: This functionality is not necessary. Applications can achieve the same result by:
+**Migration Path**: Applications can achieve the same result by:
 1. Calling `dispose()` on the existing selector
 2. Creating a new selector with updated paths
 3. Binding the same callback
-
-**Recommended Action**:
-- Remove the skipped test entirely
-- Update documentation to clarify that selectors are immutable once created
-- Consider removing the `reshape` method from the API entirely in a future breaking change
 
 ---
 
@@ -106,18 +105,21 @@ mutate(state, (modifiable) => {
 
 **Status**: Fixed - changed to `describe()`
 
-### 4.2 Deprecated `observe()` API
+### 4.2 Deprecated `observe()` API - ✅ Fixed
 
-**Issue**: Many tests use `observe()` which outputs deprecation warnings
+**Status**: Fixed in v3.0.0
 
-**Locations**: Throughout test suite
+**Previous Location**: `src/index.ts:1259-1267`
 
-**Warning**: "observe is depreacated. Use just selectors or autorun instead"
+**Resolution**: The `observe()` method has been **removed completely** in v3.0.0 as part of breaking changes.
 
-**Recommended Action**:
-- Audit all tests using `observe()`
-- Migrate to recommended APIs
-- Consider removing `observe()` in a breaking version
+**Actions Completed**:
+- ✅ Removed `observe()` method from selector return object
+- ✅ Migrated all 18 test usages across 5 test files to use separate `select()` calls
+- ✅ Updated documentation (CLAUDE.md, readme.md) with migration guide
+- ✅ No more deprecation warnings in test output
+
+**Migration Pattern**: Replace `selector.observe(callback)` with separate `select(state, paths, callback)` calls
 
 ---
 
@@ -174,8 +176,8 @@ mutate(state, (modifiable) => {
 
 ### Medium Priority
 1. Test and document all array method support
-2. Remove or document reshape functionality
-3. Migrate away from deprecated `observe()` API
+2. ~~Remove or document reshape functionality~~ ✅ **Completed in v3.0.0**
+3. ~~Migrate away from deprecated `observe()` API~~ ✅ **Completed in v3.0.0**
 
 ### Low Priority
 1. Array `delete` operator behavior documentation
@@ -194,6 +196,11 @@ Last run: 2025-11-01
 - Failing: reshape test, splice-replace test
 
 **Action Items**:
-1. Remove or unskip reshape test per decision
+1. ~~Remove or unskip reshape test per decision~~ ✅ **Completed in v3.0.0**
 2. Fix array splice bug OR document as unsupported
 3. Verify `reverse()` and `sort()` test results
+
+**v3.0.0 Update**:
+- Removed `reshape()` method and failing test
+- Removed `observe()` method and migrated all test usages
+- Expected test status after changes: 1 failing test (array splice bug only)

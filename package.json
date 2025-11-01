@@ -1,6 +1,6 @@
 {
   "name": "proxy-live-document",
-  "version": "2.0.7beta",
+  "version": "3.0.0",
   "type": "module",
   "description": "Mutable, observable, patchable JSON state wrapped in Smart Domains",
   "types": "dist/index.d.ts",

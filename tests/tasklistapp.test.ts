@@ -273,20 +273,21 @@ describe('Task List project test suite', () => {
     const mapperSpy = vi.fn()
     const callbackSpy = vi.fn()
 
-    const taskKeysSubscription = select(taskListProject, [
+    taskListProject.addTask(myNewTask)
+
+    select(taskListProject, [
       `tasks/${targetTaskId}/**`,
       `taskHierarchy/${targetTaskId}`,
       `taskHierarchy/${targetTaskId}/**`,
     ], (doc) => {
       mapperSpy()
-      return {
+      const result = {
         taskData: doc.tasks[targetTaskId],
         taskChildren: taskListProject.getOrderedSubtasksIds(targetTaskId)
       }
+      callbackSpy(result)
+      return result
     })
-
-    taskListProject.addTask(myNewTask)
-    taskKeysSubscription.observe(callbackSpy)
 
     mutate(taskListProject, (doc) => {
       doc.addTask(myNewSubTask)

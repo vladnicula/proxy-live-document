@@ -58,17 +58,17 @@ describe('class hierarchy example', () => {
   it('should capture mutation of document', () => {
     const someNewNodeId = uuidv4()
 
-    const selector = select(doc, [
-      `nodes/${someNewNodeId}`,
-    ], (state) => {
-      return {
-        node: state.nodes[newNodeId]
-      }
-    })
-
     const observeSpy = vi.fn()
 
-    selector.observe(observeSpy)
+    select(doc, [
+      `nodes/${someNewNodeId}`,
+    ], (state) => {
+      const result = {
+        node: state.nodes[newNodeId]
+      }
+      observeSpy(result)
+      return result
+    })
 
     mutate(doc, (state) => {
       const newNode = new ElementNode(someNewNodeId)

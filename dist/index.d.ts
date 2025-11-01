@@ -6,7 +6,7 @@ export declare const Patcher: unique symbol;
 export declare const WatcherProxy: unique symbol;
 export declare const TargetRef: unique symbol;
 type JSONPatch = {
-    op: 'replace' | 'remove' | 'add';
+    op: "replace" | "remove" | "add";
     path: string;
     value: unknown;
     old?: unknown;
@@ -153,8 +153,6 @@ export type SelectorMappingBase<T> = {
 export declare const select: <T extends ObjectTree, MP extends SelectorMappingBase<T>>(stateTree: T, selectors: string[], mappingFn: MP, options?: {
     reactToAncestorChanges?: boolean;
 }) => {
-    reshape: () => never;
-    observe: (fn: (input: ReturnType<MP>) => unknown) => () => void;
     dispose: () => void;
 };
 export declare const inversePatch: (patch: JSONPatchEnhanced) => JSONPatchEnhanced;
