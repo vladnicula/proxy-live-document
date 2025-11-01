@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import { mutate } from '../../src'
 
@@ -11,7 +11,7 @@ describe('proxy values make it inot patchess', () => {
       },
     } as {
       nodes: Record<string, { nodeId: number }>;
-      someOtherKey?: any;
+      someOtherKey?: unknown;
     }
 
     const patches = mutate(obj, (state) => {

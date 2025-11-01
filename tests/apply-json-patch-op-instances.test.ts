@@ -40,7 +40,8 @@ describe('applyJSONPatchOperation - instances', () => {
     }
 
     applyPatch(patch: JSONPatchEnhanced) {
-      console.log('apply patch was here!', patch)
+      // Note: patch application is handled by child elements
+      void patch
     }
   }
 
@@ -66,7 +67,7 @@ describe('applyJSONPatchOperation - instances', () => {
       const lastPathPart = pathArray[pathArray.length - 1]
       switch (op) {
         case 'add':
-        case 'replace':
+        case 'replace': {
           const newNode = new ElementNode(pathArray[pathArray.length - 1])
           this.addNode(newNode)
           const { styles } = value as Record<string, Record<string, string>>
@@ -74,6 +75,7 @@ describe('applyJSONPatchOperation - instances', () => {
             newNode.setStyle(key, styles[key])
           })
           break
+        }
         case 'remove':
           delete this.instances[lastPathPart]
           break

@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest'
-import { select, selectorsManager, StateTreeSelectorsManager } from '../../src'
+import { describe, it, expect } from 'vitest'
+import { select, selectorsManager } from '../../src'
 
 import {
   addSelectorToTree,
@@ -61,10 +61,7 @@ describe('Selector Utility: Remove', () => {
   it('selector dispose correclty works using the removeSelectorFromTree', () => {
     const meh = { something: 32 }
     const selector = select(meh, ['/something'], () => {})
-    const castSelectorManager =
-      selectorsManager as unknown as StateTreeSelectorsManager<any>
-    const selectorTree = castSelectorManager.getSelectorTree(meh)
-
+    const selectorTree = selectorsManager.getSelectorTree(meh)
     expect(getAllSubsOfSubtree([selectorTree])).toHaveLength(1)
     selector.dispose()
     expect(getAllSubsOfSubtree([selectorTree])).toHaveLength(0)

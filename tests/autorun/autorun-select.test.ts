@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import { describe, it, expect, vi } from 'vitest'
 import { mutate, autorun, selectorsManager } from '../../src'
 import { countSelectorsInTree } from '../../src/selector-map'

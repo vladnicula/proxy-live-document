@@ -15,7 +15,7 @@ describe('array splice edge cases', () => {
     })
 
     // Remove 1 item at index 1 and insert 2 new items
-    const patches = mutate(state, (modifiable) => {
+    mutate(state, (modifiable) => {
       modifiable.words.splice(1, 1, 'beautiful', 'day')
     })
 
@@ -30,7 +30,7 @@ describe('array splice edge cases', () => {
       words: ['hello', 'world'],
     }
 
-    const patches = mutate(state, (modifiable) => {
+    mutate(state, (modifiable) => {
       modifiable.words.splice(1, 0, 'beautiful')
     })
 
@@ -49,8 +49,6 @@ describe('array splice edge cases', () => {
         modifiable.words.splice(1, 1, 'beautiful', 'day')
       }) ?? []
 
-    console.log('patches from splice replace:', patches)
-
     mutateFromPatches(stateTarget, patches)
 
     expect(stateTarget).toEqual(state)
@@ -67,7 +65,7 @@ describe('array splice edge cases', () => {
       mapperSpy(currentState.words)
     })
 
-    const patches = mutate(state, (modifiable) => {
+    mutate(state, (modifiable) => {
       modifiable.words.reverse()
     })
 
@@ -88,7 +86,7 @@ describe('array splice edge cases', () => {
       mapperSpy(currentState.words)
     })
 
-    const patches = mutate(state, (modifiable) => {
+    mutate(state, (modifiable) => {
       modifiable.words.sort()
     })
 

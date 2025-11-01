@@ -1,0 +1,22 @@
+{
+  "eslint.enable": true,
+  "eslint.validate": [
+    "javascript",
+    "typescript"
+  ],
+  "eslint.experimental.useFlatConfig": true,
+  "[typescript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": false
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.formatOnSave": false
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.options": {
+    "overrideConfigFile": "eslint.config.js"
+  }
+}

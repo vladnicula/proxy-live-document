@@ -1,7 +1,7 @@
 import merge from 'lodash.merge'
 import { describe, it, expect } from 'vitest'
 
-import { mutate, JSONPatchEnhanced } from '../src'
+import { mutate } from '../src'
 
 describe('json patchs combine', () => {
   it('add l1 -> l2 -> l31 -> l41, add l2 -> l32 -> l42, remove l2', () => {
@@ -135,7 +135,7 @@ describe('json patchs combine', () => {
   it('handles replace followed by remove as remove', () => {
     const obj = {
       x: 1,
-    } as Record<string, any>
+    } as Record<string, unknown | Record<string, unknown>>
 
     const patches = mutate(obj, (state) => {
       state.x = 32
@@ -153,7 +153,7 @@ describe('json patchs combine', () => {
   it('handles remove followed by add as replace', () => {
     const obj = {
       x: 1,
-    } as Record<string, any>
+    } as Record<string, unknown | Record<string, unknown>>
 
     const patches = mutate(obj, (state) => {
       delete state.x
@@ -170,10 +170,10 @@ describe('json patchs combine', () => {
   it('handles two deletes on two levels of the same nested object as one delete with correct old source value', () => {
     const obj = {
       abc: { field: 5, somethingElse: 32 },
-    } as Record<string, any>
+    } as Record<string, unknown | Record<string, unknown>>
 
     const patches = mutate(obj, (state) => {
-      delete state.abc.field
+      delete (state.abc as Record<string, unknown>).field
       delete state.abc
     })!
 
@@ -185,10 +185,10 @@ describe('json patchs combine', () => {
   it('handles field update followed by remove with the old value from the removed object', () => {
     const obj = {
       abc: { field: 5, somethingElse: 32 },
-    } as Record<string, any>
+    } as Record<string, unknown | Record<string, unknown>>
 
     const patches = mutate(obj, (state) => {
-      state.abc.field = 'different value'
+      (state.abc as Record<string, unknown>).field = 'different value'
       delete state.abc
     })!
 
@@ -206,10 +206,10 @@ describe('json patchs combine', () => {
         },
         somethingElse: 32,
       },
-    } as Record<string, any>
+    } as Record<string, unknown | Record<string, unknown>>
 
     const patches = mutate(obj, (state) => {
-      state.abc.leve2 = { altceva: -1000 }
+      (state.abc as Record<string, unknown>).leve2 = { altceva: -1000 }
       delete state.abc
     })!
 

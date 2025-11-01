@@ -15,8 +15,8 @@
     "test": "vitest --config ./vitest/vitest.config.ts run",
     "test:watch": "vitest --config ./vitest/vitest.config.ts watch",
     "test:coverage": "vitest --config ./vitest/vitest.config.ts run --coverage",
-    "lint": "eslint . --ext .ts",
-    "lint:fix": "eslint . --ext .ts --fix",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
     "prepare": "husky"
   },

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import {
   addSelectorToTree,
@@ -85,13 +85,13 @@ describe('Selector Utility: Descendents', () => {
     const selectorFn1 = () => {}
     let tree: SelectorTreeBranch = { propName: 'root' }
 
-    const leaf1RefFromAdd = addSelectorToTree(
+    addSelectorToTree(
       tree,
       ['intermediary', 'leaf1'],
       selectorFn1,
     )
 
-    const leaf1RefStarFromAdd = addSelectorToTree(
+    addSelectorToTree(
       tree,
       ['intermediary', '*'],
       selectorFn1,

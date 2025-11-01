@@ -186,8 +186,8 @@ class TaskListProject {
   }
 
   mapFromJSON(json: Record<string, unknown>) {
-    console.log('should map data from a JSON into the actual project', json)
-    const { tasks, taskHierarchy } = json
+    // console.log('should map data from a JSON into the actual project', json)
+    const { tasks } = json
     const tasksAsJSONofTask = tasks as Record<
       string,
       {

@@ -48,7 +48,7 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(
   let lastPatcher: {
     entity: Record<string, unknown>;
     pathArray: string[];
-  } | null = currentStateTree.hasOwnProperty(Patcher)
+  } | null = Object.prototype.hasOwnProperty.call(currentStateTree, Patcher)
     ? {
       entity: currentStateTree,
       pathArray: [...pathArray],
@@ -57,7 +57,7 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(
 
   for (let i = 0; i < pathArrayLen - 1; i += 1) {
     itPathPart = pathArray[i]
-    if (!currentStateTree.hasOwnProperty(itPathPart)) {
+    if (!Object.prototype.hasOwnProperty.call(currentStateTree, itPathPart)) {
       throw new Error(
         `applyJSONPatchOperation cannot walk json patch path ${pathArray.join(
           '/',
@@ -67,7 +67,7 @@ export const applyJSONPatchOperation = <T extends ObjectTree>(
     currentStateTree = (currentStateTree as Record<string, unknown>)[
       itPathPart
     ] as Record<string, unknown>
-    if (currentStateTree.hasOwnProperty(Patcher)) {
+    if (Object.prototype.hasOwnProperty.call(currentStateTree, Patcher)) {
       lastPatcher = {
         entity: currentStateTree,
         pathArray: [...pathArray].slice(i + 1),
@@ -139,7 +139,7 @@ export class MutationsManager {
   mutationMaps: Map<ObjectTree, ProxyMapType<ObjectTree>> = new Map()
   mutationDirtyPaths: Map<
     ObjectTree,
-    Set<ProxyMutationObjectHandler<ObjectTree>>
+    Set<DirtyPathHandler>
   > = new Map()
   mutationSelectorPointers: Map<ObjectTree, Array<SelectorTreeBranch>> =
     new Map()
@@ -163,9 +163,7 @@ export class MutationsManager {
           target: subTarget,
           selectorPointerArray: selectorTreePointer,
           mutationNode: relevantMutationPointer,
-          dirtyPaths: this.mutationDirtyPaths.get(target) as Set<
-            ProxyMutationObjectHandler<object>
-          >,
+          dirtyPaths: this.mutationDirtyPaths.get(target)!,
           incOpCount: incOpCount,
           // pathArray: currentPathArray,
           proxyfyAccess: <T extends ObjectTree>(
@@ -192,9 +190,7 @@ export class MutationsManager {
       incOpCount,
       selectorPointerArray: selectorTreePointer,
       mutationNode: relevantMutationPointer,
-      dirtyPaths: this.mutationDirtyPaths.get(target) as Set<
-        ProxyMutationObjectHandler<object>
-      >,
+      dirtyPaths: this.mutationDirtyPaths.get(target)!,
       // pathArray: currentPathArray,
       proxyfyAccess: <T extends ObjectTree>(
         subentityFromTarget: T,
@@ -215,7 +211,7 @@ export class MutationsManager {
 
     const proxyHandler = Array.isArray(subTarget)
       ? (new ProxyMutationArrayHandler(
-          subProxyParams as any,
+        subProxyParams as typeof subProxyParams & { target: Array<unknown> },
       ) as ProxyHandler<T>)
       : (new ProxyMutationObjectHandler(subProxyParams) as ProxyHandler<T>)
 
@@ -230,9 +226,7 @@ export class MutationsManager {
     this.mutationMaps.set(target, new WeakMap() as ProxyMapType<ObjectTree>)
 
     const proxyMapForMutation = new WeakMap() as ProxyMapType<ObjectTree>
-    const mutationDirtyPaths = new Set<
-      ProxyMutationObjectHandler<ObjectTree>
-    >()
+    const mutationDirtyPaths = new Set<DirtyPathHandler>()
     const selectorPointers = new Array<SelectorTreeBranch>(
       selectorsManager.getSelectorTree(target),
     )
@@ -276,7 +270,7 @@ export class MutationsManager {
     this.mutationSelectorPointers.set(target, selectorPointers)
   }
 
-  hasRoot(rootA: any) {
+  hasRoot(rootA: ObjectTree) {
     return this.mutationMaps.has(rootA)
   }
 
@@ -440,7 +434,7 @@ export const autorun = <T extends ObjectTree>(
 
   const cleanup = () => {
     currentPointers.forEach((pointer) => {
-      removeSelectorFromTree(pointer, callbackWithCleanupOfCurrentPointers)
+      removeSelectorFromTree(pointer, callbackWithCleanupOfCurrentPointers as SelectorMappingBase<unknown>)
     })
   }
   const callbackWithCleanupOfCurrentPointers = (
@@ -478,12 +472,15 @@ export abstract class IObservableDomain {
   abstract fromJSON: (input: Record<string, unknown>) => void;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ProxyAccessFN<T = any> = (
   target: T,
   mutationPointer: MutationTreeNode,
   newPointers: SelectorTreeBranch[]
   // pathArray: string[]
 ) => T;
+type DirtyPathHandler = ProxyMutationObjectHandler<ObjectTree> | ProxyMutationArrayHandler<Array<unknown>>
+
 export class ProxyMutationObjectHandler<T extends object> {
   // readonly pathArray: string[]
   readonly deleted: Record<string, boolean> = {}
@@ -512,7 +509,7 @@ export class ProxyMutationObjectHandler<T extends object> {
 
   // parent set this (origin mutation manager)
   // COULD BE CLOUSER BASED
-  readonly dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>
+  readonly dirtyPaths: Set<DirtyPathHandler>
 
   // parent set this (origin mutation manager)
   // call that can create new proxies, managed by mutation manager
@@ -537,7 +534,7 @@ export class ProxyMutationObjectHandler<T extends object> {
     target: T;
     // pathArray: string []
     selectorPointerArray: Array<SelectorTreeBranch>;
-    dirtyPaths: Set<ProxyMutationObjectHandler<ObjectTree>>;
+    dirtyPaths: Set<DirtyPathHandler>;
     proxyfyAccess: ProxyAccessFN;
     incOpCount: () => number;
   }) {
@@ -564,7 +561,7 @@ export class ProxyMutationObjectHandler<T extends object> {
       return Reflect.get(target, prop)
     }
 
-    if (typeof prop === 'string' && this.deleted.hasOwnProperty(prop)) {
+    if (typeof prop === 'string' && Object.prototype.hasOwnProperty.call(this.deleted, prop)) {
       return undefined
     }
 
@@ -576,7 +573,7 @@ export class ProxyMutationObjectHandler<T extends object> {
       const { selectorPointerArray } = this
       const subPropSelectionPointers = selectorPointerArray.reduce(
         (acc: SelectorTreeBranch[], item) => {
-          const descendentPointers = getRefDescedents(item, prop as any)
+          const descendentPointers = getRefDescedents(item, prop)
           if (descendentPointers) {
             acc.push(...descendentPointers)
           }
@@ -648,7 +645,10 @@ export class ProxyMutationObjectHandler<T extends object> {
      * It's debatable if having hasOwnProp is better here compared to
      * the in operator: https://masteringjs.io/tutorials/fundamentals/hasownproperty
      */
-    if (!this.original.hasOwnProperty(prop) && target.hasOwnProperty(prop)) {
+    if (
+      !Object.prototype.hasOwnProperty.call(this.original, prop) &&
+      Object.prototype.hasOwnProperty.call(target, prop)
+    ) {
       this.original[prop] = target[prop]
     }
 
@@ -660,7 +660,7 @@ export class ProxyMutationObjectHandler<T extends object> {
     let opValue = value
     if (typeof value === 'object' && value !== null) {
       const objectValue = value as unknown as object
-      if (objectValue.hasOwnProperty(WatcherProxy)) {
+      if (Object.prototype.hasOwnProperty.call(objectValue, WatcherProxy)) {
         opValue = (objectValue as unknown as { [TargetRef]: T[K] })[TargetRef]
       } else {
         // was opValue = {...value} before. not sure why, all tests pass without it
@@ -750,7 +750,7 @@ export class ProxyMutationObjectHandler<T extends object> {
         this.dirtyPaths.add(this)
         this.deleted[prop] = true
 
-        if (!this.original.hasOwnProperty(prop)) {
+        if (!Object.prototype.hasOwnProperty.call(this.original, prop)) {
           this.original[prop] = target[prop]
         }
 
@@ -795,7 +795,7 @@ export class ProxyMutationObjectHandler<T extends object> {
   }
 }
 
-export class ProxyMutationArrayHandler<T extends Array<any>> {
+export class ProxyMutationArrayHandler<T extends Array<unknown>> {
   // readonly pathArray: string[]
   readonly deleted: Record<string, boolean> = {}
 
@@ -818,7 +818,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
 
   // parent set this (origin mutation manager)
   // COULD BE CLOUSER BASED
-  readonly dirtyPaths: Set<ProxyMutationArrayHandler<T>>
+  readonly dirtyPaths: Set<DirtyPathHandler>
 
   // parent set this (origin mutation manager)
   // call that can create new proxies, managed by mutation manager
@@ -843,7 +843,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
     mutationNode: MutationTreeNode;
     target: T;
     selectorPointerArray: Array<SelectorTreeBranch>;
-    dirtyPaths: Set<ProxyMutationArrayHandler<T>>;
+    dirtyPaths: Set<DirtyPathHandler>;
     proxyfyAccess: ProxyAccessFN;
     incOpCount: () => number;
   }) {
@@ -913,6 +913,7 @@ export class ProxyMutationArrayHandler<T extends Array<any>> {
           return target.splice(...args)
         }
       case 'push':
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return (...args: any[]) => {
           const pushSymbol = '-'
           this.writeSelectorPointerArray.push(
@@ -1175,7 +1176,7 @@ export class StateTreeSelectorsManager<T extends ObjectTree> {
     selectorPointers: Set<SelectorTreeBranch>,
     combinedPatches: JSONPatchEnhanced[],
   ) {
-    const uniqueSelectorFunctions = new Set<SelectorMappingBase<any>>()
+    const uniqueSelectorFunctions = new Set<SelectorMappingBase<unknown>>()
 
     const callSelector = (sub: SelectorMappingBase<T>) => {
       sub(stateTree, combinedPatches)
@@ -1247,7 +1248,7 @@ export const select = <T extends ObjectTree, MP extends SelectorMappingBase<T>>(
     return addSelectorToTree(
       selectorTree,
       getSelectorPathArray(selector),
-      selectorWithObservers,
+      selectorWithObservers as SelectorMappingBase<unknown>,
       options,
     )
   })
@@ -1255,7 +1256,7 @@ export const select = <T extends ObjectTree, MP extends SelectorMappingBase<T>>(
   return {
     dispose: () => {
       for (const pointer of pointers) {
-        removeSelectorFromTree(pointer, selectorWithObservers)
+        removeSelectorFromTree(pointer, selectorWithObservers as SelectorMappingBase<unknown>)
       }
     },
   }

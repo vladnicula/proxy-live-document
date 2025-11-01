@@ -27,11 +27,12 @@ export interface MutationTreeNodeWithAdd {
   /** operation add only contains a new value */
   op: 'add';
   /** new value is can be falsy, but still exists */
-  new: any;
+  new: unknown;
   opCount: number;
 }
 
 export type MutationTreeNode = (
+  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   | {}
   | MutationTreeNodeWithReplace
   | MutationTreeNodeWithRemove
@@ -125,7 +126,9 @@ export const createMutaitonInMutationTree = (
     // old value
     if (newValue === NO_VALUE) {
       // remove the new key from the object if it exists
-      'new' in mutationNode ? delete mutationNode.new : null
+      if ('new' in mutationNode) {
+        delete mutationNode.new
+      }
       Object.assign(mutationNode, {
         op: 'remove',
       })
@@ -166,7 +169,7 @@ export const createMutaitonInMutationTree = (
           )
         }
         if (key in newToModify) {
-          newToModify = (newToModify as Record<string, any>)[key]
+          newToModify = (newToModify as Record<string, unknown>)[key] as Record<string, unknown>
         }
       })
 
@@ -262,10 +265,10 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
       }
       if (key in pointerToObjectToModify) {
         pointerToObjectToModify = (
-          pointerToObjectToModify as Record<string, any>
+            pointerToObjectToModify as Record<string, unknown>
         )[key]
       }
-    });
+    })
 
     // if the key did not exist in the original object, we don't need to have a
     // reference of the old value
@@ -274,7 +277,7 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
     // write the old value from this node in the right place
     // from an ancestor. Note, there might be a need to pop
     // the first item in path. We will have ot check
-    (pointerToObjectToModify as Record<string, unknown>)[
+    ;(pointerToObjectToModify as Record<string, unknown>)[
       mutationNode.k.toString()
     ] = mutationNode.old
     // mutationNode.o = targetNodeToReceiveOldValue
@@ -284,9 +287,9 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
     // old value from it was asimilated into the ancestor that has
     // an operation
     if ('op' in mutationNode) {
-      delete (mutationNode as any).op
-      delete (mutationNode as any).new
-      delete (mutationNode as any).old
+      delete (mutationNode as unknown as Record<string, unknown>).op
+      delete (mutationNode as unknown as Record<string, unknown>).new
+      delete (mutationNode as unknown as Record<string, unknown>).old
     }
   }
 
@@ -319,7 +322,7 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
         }
         if (key in pointerToObjectToModify) {
           pointerToObjectToModify = (
-            pointerToObjectToModify as Record<string, any>
+            pointerToObjectToModify as Record<string, unknown>
           )[key]
         }
       })
@@ -333,16 +336,16 @@ const recursiveApplyChanges = (mutationNode: MutationTreeNode) => {
     // old value from it was asimilated into the ancestor that has
     // an operation
     if ('op' in mutationNode) {
-      delete (mutationNode as any).op
-      delete (mutationNode as any).new
-      delete (mutationNode as any).old
+      delete (mutationNode as unknown as Record<string, unknown>).op
+      delete (mutationNode as unknown as Record<string, unknown>).new
+      delete (mutationNode as unknown as Record<string, unknown>).old
     }
   }
 
   if ('op' in mutationNode) {
-    delete (mutationNode as any).op
-    delete (mutationNode as any).new
-    delete (mutationNode as any).old
+    delete (mutationNode as unknown as Record<string, unknown>).op
+    delete (mutationNode as unknown as Record<string, unknown>).new
+    delete (mutationNode as unknown as Record<string, unknown>).old
   }
 }
 
@@ -352,6 +355,7 @@ export const getPatchesFromMutationTree = (mutationNode: MutationTreeNode) => {
   return patches
     .sort((a, b) => a.opCount - b.opCount)
     .map((patch) => {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { opCount, ...rest } = patch
       return rest
     })

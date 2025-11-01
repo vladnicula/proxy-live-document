@@ -2,14 +2,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { mutate, select } from '../src'
 
 // clone deep function
-const cloneDeep = (obj: any) => JSON.parse(JSON.stringify(obj))
+const cloneDeep = <T>(obj: T): T => JSON.parse(JSON.stringify(obj))
 
 const myStateTemplate: {
   nodesById: Record<
     string,
     {
       title: string;
-      styles?: Record<string, any>;
+      styles?: Record<string, unknown>;
     }
   >;
 } = {

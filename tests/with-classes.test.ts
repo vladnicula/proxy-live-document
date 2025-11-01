@@ -5,7 +5,7 @@ import { select, mutate } from '../src'
 describe('class hierarchy example', () => {
   class StaticValue {
     id: string
-    type: 'static' = 'static'
+    type = 'static' as const
     content: string | number | null = null
 
     constructor(content: string, id = uuidv4()) {
@@ -16,7 +16,7 @@ describe('class hierarchy example', () => {
 
   class DynamicValue {
     id: string
-    type: 'dynamic' = 'dynamic'
+    type = 'dynamic' as const
     content: { refType: string; refId: string }
 
     constructor(content: { refType: string; refId: string }, id = uuidv4()) {
