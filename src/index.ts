@@ -129,9 +129,38 @@ export const mutateFromPatches = <T extends ObjectTree>(
   patches: JSONPatchEnhanced[],
 ) => {
   mutate(stateTree, (mutatable) => {
-    for (let i = 0; i < patches.length; i += 1) {
-      applyJSONPatchOperation(patches[i], mutatable)
-    }
+    // For array operations, we need to handle remove operations in reverse order
+    // to account for shifting indices
+    const arrayRemovePatches: JSONPatchEnhanced[] = []
+    const otherPatches: JSONPatchEnhanced[] = []
+
+    patches.forEach(patch => {
+      const pathArray = patch.pathArray
+      if (patch.op === 'remove' && pathArray.length > 0) {
+        // Check if this is an array operation
+        let current = mutatable as Record<string, unknown>
+        for (let i = 0; i < pathArray.length - 1; i++) {
+          current = current[pathArray[i]] as Record<string, unknown>
+        }
+        if (Array.isArray(current)) {
+          arrayRemovePatches.push(patch)
+        } else {
+          otherPatches.push(patch)
+        }
+      } else {
+        otherPatches.push(patch)
+      }
+    })
+
+    // Apply non-array remove patches first
+    otherPatches.forEach(patch => {
+      applyJSONPatchOperation(patch, mutatable)
+    })
+
+    // Apply array remove patches in reverse order
+    arrayRemovePatches.reverse().forEach(patch => {
+      applyJSONPatchOperation(patch, mutatable)
+    })
   })
 }
 
@@ -870,13 +899,17 @@ export class ProxyMutationArrayHandler<T extends Array<unknown>> {
           // for now we won't deal with adding items that
           // get inserted in the array or the -1 count for
           // the end index.
-          const [start, count] = args
+          const [start, deleteCount, ...itemsToAdd] = args
+
+          // Handle negative start indices by converting them to positive
+          // If start is negative, it means start from the end of the array
+          const actualStart = start < 0 ? Math.max(0, target.length + start) : start
 
           // we should announce that we are removing the
           // indexes between start and end in the mutations
           // and dirty paths and what not.
-          const end = start + count
-          for (let i = start; i < end; i += 1) {
+          const end = actualStart + deleteCount
+          for (let i = actualStart; i < end; i += 1) {
             this.writeSelectorPointerArray.push(
               ...this.selectorPointerArray.reduce(
                 (acc: SelectorTreeBranch[], item) => {
@@ -907,10 +940,42 @@ export class ProxyMutationArrayHandler<T extends Array<unknown>> {
             this.deleted[i] = true
           }
 
+          // Track the added items
+          for (let i = 0; i < itemsToAdd.length; i += 1) {
+            const index = actualStart + i
+            this.writeSelectorPointerArray.push(
+              ...this.selectorPointerArray.reduce(
+                (acc: SelectorTreeBranch[], item) => {
+                  const descendentPointers = getRefDescedents(
+                    item,
+                    index.toString(),
+                  )
+                  if (descendentPointers) {
+                    acc.push(...descendentPointers)
+                  }
+                  return acc
+                },
+                [],
+              ),
+            )
+            const childMutationPointer = makeAndGetChildPointer(
+              this.mutationNode,
+              index.toString(),
+            )
+
+            createMutaitonInMutationTree(
+              childMutationPointer,
+              NO_VALUE,
+              itemsToAdd[i],
+              this.incOpCount(),
+            )
+          }
+
           this.dirtyPaths.add(this)
 
           // console.log('splice happening', target, args)
-          return target.splice(...args)
+          // Use actualStart for the actual splice operation to handle negative indices
+          return target.splice(actualStart, deleteCount, ...itemsToAdd)
         }
       case 'push':
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1011,6 +1076,63 @@ export class ProxyMutationArrayHandler<T extends Array<unknown>> {
           this.dirtyPaths.add(this)
 
           return target.shift()
+        }
+      }
+      case 'unshift': {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (...args: any[]) => {
+          // Track all existing indices that will be shifted
+          for (let i = 0; i < target.length; i += 1) {
+            this.writeSelectorPointerArray.push(
+              ...this.selectorPointerArray.reduce(
+                (acc: SelectorTreeBranch[], item) => {
+                  const descendentPointers = getRefDescedents(
+                    item,
+                    i.toString(),
+                  )
+                  if (descendentPointers) {
+                    acc.push(...descendentPointers)
+                  }
+                  return acc
+                },
+                [],
+              ),
+            )
+          }
+
+          // Track the new items being added at the beginning
+          for (let i = 0; i < args.length; i += 1) {
+            this.writeSelectorPointerArray.push(
+              ...this.selectorPointerArray.reduce(
+                (acc: SelectorTreeBranch[], item) => {
+                  const descendentPointers = getRefDescedents(
+                    item,
+                    i.toString(),
+                  )
+                  if (descendentPointers) {
+                    acc.push(...descendentPointers)
+                  }
+                  return acc
+                },
+                [],
+              ),
+            )
+            const childMutationPointer = makeAndGetChildPointer(
+              this.mutationNode,
+              i.toString(),
+            )
+
+            createMutaitonInMutationTree(
+              childMutationPointer,
+              NO_VALUE,
+              args[i],
+              this.incOpCount(),
+            )
+          }
+
+          this.dirtyPaths.add(this)
+
+          return target.unshift(...args)
         }
       }
     }
