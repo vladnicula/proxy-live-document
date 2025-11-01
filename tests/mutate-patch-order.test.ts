@@ -23,7 +23,7 @@ const document = {
 }
 
 
-describe.only('patch order from mutations', () => {
+describe('patch order from mutations', () => {
   
   it("when setting a key on an object, the path includes the key that was set", () => {
     const newNodeC = {
