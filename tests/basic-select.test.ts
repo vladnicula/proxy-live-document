@@ -206,7 +206,7 @@ describe('basic select', () => {
     expect(callbackSpy2).toHaveBeenCalledTimes(2)
   })
 
-  it.skip('allows reshaping the selection array while keeping all bound observers', () => {
+  it('allows reshaping the selection array while keeping all bound observers', () => {
     const state = {
       key1: 'something',
       key2: 'something-else'
@@ -242,10 +242,10 @@ describe('basic select', () => {
     // callback does not get called again because selector is on key1, and we
     // changed key2
     expect(callbackSpy).toHaveBeenCalledTimes(1)
-     
-    // selectorThatWillBeReshaped.reshape((selectors) => {
-    //   return [...selectors, [`key2`]]
-    // })
+
+    selectorThatWillBeReshaped.reshape((selectors) => {
+      return [...selectors, ['/key2']]
+    })
 
     mutate(state, (modifiable) => {
       modifiable.key2 = 'hello on key2 a second time'
