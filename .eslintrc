@@ -1,12 +1,16 @@
 {
-    "root": true,
-    "parser": "@typescript-eslint/parser",
-    "rules": {
-      "indent": ["warn", 2],
-      "no-trailing-spaces": "warn",
-      // https://eslint.org/docs/rules/semi
-      "semi": ["warn", "never"]
-    }
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "module",
+    "project": "./tsconfig.json"
+  },
+  "plugins": ["@typescript-eslint"],
+  "extends": ["eslint:recommended", "@typescript-eslint/recommended"],
+  "rules": {
+    "indent": ["warn", 2],
+    "no-trailing-spaces": "warn",
+    "semi": ["warn", "never"]
   }
-  
-  
+}

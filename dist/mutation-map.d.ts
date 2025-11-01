@@ -23,7 +23,7 @@ export interface MutationTreeNodeWithAdd {
     new: any;
     opCount: number;
 }
-export declare type MutationTreeNode = ({} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
+export type MutationTreeNode = ({} | MutationTreeNodeWithReplace | MutationTreeNodeWithRemove | MutationTreeNodeWithAdd) & {
     k: string | number;
     p: null | MutationTreeNode;
     /** the children of this node */

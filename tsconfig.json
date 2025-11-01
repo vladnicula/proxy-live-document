@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
-    "target": "es2019",
+    "target": "ES2020",
     "module": "ESNext",
     "jsx": "preserve",
     "esModuleInterop": true,
@@ -9,20 +9,12 @@
     "noUnusedParameters": true,
     "sourceMap": true,
     "allowJs": true,
-    "lib": [
-      "es2017",
-      "dom"
-    ],
+    "lib": ["es2017", "dom"],
     "moduleResolution": "node",
     "outDir": "./dist",
     "declaration": true,
     "declarationDir": "./dist"
   },
-  "include": [
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

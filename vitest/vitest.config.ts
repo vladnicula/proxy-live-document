@@ -1,5 +1,5 @@
-import { defineConfig } from 'vitest/config'
-import tsconfigPaths from 'vite-tsconfig-paths'
+import { defineConfig } from "vitest/config";
+import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [
@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     // ...
     coverage: {
-      provider: 'c8', // or 'istanbul'
+      provider: "istanbul",
     },
   },
-})
+});
