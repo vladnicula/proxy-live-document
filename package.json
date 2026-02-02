@@ -49,6 +49,6 @@
     "realtime-updates"
   ],
   "dependencies": {
-    "@typescript-eslint/parser": "^6.9.0"
+    "@typescript-eslint/parser": "^8.54.0"
   }
 }
